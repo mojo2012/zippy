@@ -1,0 +1,13 @@
+#!/bin/zsh
+# Baut Zippy ohne Apple-Team und signiert ad hoc (nur für lokale Tests).
+set -e
+cd "${0:A:h}"
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodegen generate --quiet
+xcodebuild -project Zippy.xcodeproj -scheme Zippy -configuration Debug \
+  -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | grep -E "error|BUILD" || true
+APP=$PWD/build/Build/Products/Debug/Zippy.app
+codesign -f -s - --options runtime --entitlements ZippyFS/ZippyFS.entitlements "$APP/Contents/Extensions/ZippyFS.appex"
+codesign -f -s - --options runtime --entitlements Zippy/Zippy.entitlements "$APP"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f -R "$APP"
+echo "Fertig: $APP"
