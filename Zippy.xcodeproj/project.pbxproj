@@ -53,6 +53,7 @@
 		A171C7E6AAD8116A0B89A109 /* ArchiveMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMounter.swift; sourceTree = "<group>"; };
 		B064CFCB0FC7D2B615C34366 /* Zippy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zippy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8C7C76EE9CDDAD1732D8DAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA1F245B3259E3C293D9775C /* ArchiveCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArchiveCore; path = ArchiveCore; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -77,9 +78,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		7712BEDC6D761D1AD8EFF3B0 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				CA1F245B3259E3C293D9775C /* ArchiveCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
 		8C464B4EBDA7CC01A23C29DB = {
 			isa = PBXGroup;
 			children = (
+				7712BEDC6D761D1AD8EFF3B0 /* Packages */,
 				04F1C01DBECBA6457B73FDE4 /* Zippy */,
 				A20D20C64BC94F20D686A80B /* ZippyFS */,
 				383564B6AD2023F935C13B73 /* Products */,
@@ -165,6 +175,9 @@
 			);
 			mainGroup = 8C464B4EBDA7CC01A23C29DB;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C159E1F253330BD99F657CD3 /* XCLocalSwiftPackageReference "ArchiveCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 383564B6AD2023F935C13B73 /* Products */;
 			projectDirPath = "";
@@ -436,6 +449,13 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		C159E1F253330BD99F657CD3 /* XCLocalSwiftPackageReference "ArchiveCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ArchiveCore;
+		};
+/* End XCLocalSwiftPackageReference section */
 	};
 	rootObject = 6DDDCB8BD3A0CA023D6C883E /* Project object */;
 }

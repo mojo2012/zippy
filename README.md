@@ -43,3 +43,15 @@ bei roh angehängten Images nicht nach: dann `FSMediaTypes` in `project.yml` anp
 - Logs lesen mit `/usr/bin/log` (in zsh kann `log` überdeckt sein).
 - Kostenloses Personal Team (Apple-ID in Xcode) reicht nicht: "Personal development teams ...
   do not support the FSKit Module capability." → bezahlter Apple-Developer-Account nötig.
+
+## ArchiveCore (ZIP-Kern)
+
+Swift-Package mit libarchive: liest das ZIP-Inhaltsverzeichnis in einen Ordnerbaum
+und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cache entpackt).
+
+    ./scripts/build-libarchive.sh          # einmalig: libarchive bauen (Prüfsumme wird geprüft)
+    cd ArchiveCore && swift test           # Tests
+    swift run archivetool ls  datei.zip    # Inhalt anzeigen
+    swift run archivetool cat datei.zip pfad/im/zip
+
+Vorerst nicht unterstützt: verschlüsselte ZIPs, LZMA/XZ-komprimierte Einträge.

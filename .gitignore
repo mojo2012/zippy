@@ -3,3 +3,7 @@ build/
 DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
+.build/
+.swiftpm/
+# wird von scripts/build-libarchive.sh erzeugt
+ArchiveCore/Vendor/

@@ -5,6 +5,10 @@ options:
     macOS: "15.4"                    # FSKit gibt es ab macOS 15.4
   createIntermediateGroups: true
 
+packages:
+  ArchiveCore:
+    path: ArchiveCore    # ZIP-Kern (libarchive), wird in Schritt 2/3 von den Adaptern genutzt
+
 settings:
   base:
     SWIFT_VERSION: "6.0"

@@ -3,6 +3,7 @@
 set -e
 cd "${0:A:h}"
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+[[ -d ArchiveCore/Vendor/CArchive.xcframework ]] || ./scripts/build-libarchive.sh
 xcodegen generate --quiet
 xcodebuild -project Zippy.xcodeproj -scheme Zippy -configuration Debug \
   -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | grep -E "error|BUILD" || true
