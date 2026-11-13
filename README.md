@@ -108,8 +108,13 @@ Sandbox-Container des ersten Prototyps lenkt das sonst um):
 macFUSE mountet über FSKit (ohne Kernel-Erweiterung) und die Volumes gelten als lokal, aber:
 - Sie erscheinen nicht in der Finder-Seitenleiste (macFUSE mountet an DiskArbitration vorbei).
 - Finder/`diskutil` können nicht auswerfen; Zippy hängt sich dafür selbst in DiskArbitration ein.
-- Nur ein Volume gleichzeitig (nach Aktivieren der Erweiterung); weitere scheitern und
-  hinterlassen verwaiste Hilfs-Laufwerke, die nur das Festplattendienstprogramm löst.
+- Nur ein Volume gleichzeitig, auch mit macFUSE 5.5.0 noch (geprüft 13.11.2026): Beim
+  zweiten meldet macFUSEs Dienst nach 10 s „Failed to advertise server for volume“, seine
+  FSKit-Erweiterung übernimmt das Gerät nicht. Eindeutige `fsname` ändert nichts. Weitere
+  Versuche können verwaiste Hilfs-Laufwerke hinterlassen. An FSKit selbst liegt es nicht:
+  Apples exFAT-Erweiterung mountet auf derselben Maschine zwei Volumes gleichzeitig.
+  Mehrere Volumes ginge mit macFUSEs Kernel-Erweiterung, die braucht aber gesenkte
+  Sicherheit in der Wiederherstellungsumgebung.
 - Leerzeichen und Umlaute im Mountpfad lassen den Mount scheitern.
 - Unter /Volumes bleiben nach dem Aushängen leere Ordner, die nur root löschen kann.
 
