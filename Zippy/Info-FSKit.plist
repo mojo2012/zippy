@@ -38,9 +38,25 @@
 				<string>org.gnu.gnu-tar-archive</string>
 				<string>org.gnu.gnu-zip-tar-archive</string>
 				<string>public.tar-bzip2-archive</string>
+				<string>org.tukaani.tar-xz-archive</string>
 				<string>org.gnu.gnu-zip-archive</string>
 				<string>public.bzip2-archive</string>
+				<string>org.tukaani.xz-archive</string>
 				<string>public.z-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeIconFile</key>
+			<string>7z</string>
+			<key>CFBundleTypeName</key>
+			<string>7-Zip-Archiv</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.7-zip.7-zip-archive</string>
 			</array>
 		</dict>
 	</array>

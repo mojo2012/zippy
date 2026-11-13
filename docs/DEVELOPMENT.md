@@ -56,11 +56,12 @@ und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cac
     swift run archivetool ls  datei.zip    # Inhalt anzeigen
     swift run archivetool cat datei.zip pfad/im/zip
 
-Vorerst nicht unterstützt: LZMA/XZ-komprimierte Einträge (libarchive ist ohne liblzma gebaut).
+`build-libarchive.sh` baut liblzma (xz-utils) statisch mit und packt sie in dieselbe
+Bibliothek; damit gehen 7z, `.tar.xz` und LZMA-Einträge in ZIPs.
 
 ### TAR
 
-`.tar`, `.tgz`/`.tar.gz`, `.tbz`/`.tar.bz2` und `.tar.Z`. Das Format erkennt libarchive
+`.tar`, `.tgz`/`.tar.gz`, `.tbz`/`.tar.bz2`, `.txz`/`.tar.xz` und `.tar.Z`. Das Format erkennt libarchive
 am Inhalt (`Archive.format`), nicht an der Endung. Volume-Name ohne `.tar`, Symbol `tgz.icns`.
 
 - Hardlinks im TAR zeigen auf die Daten ihres Ziels und bleiben beim Speichern Hardlinks.
@@ -69,9 +70,20 @@ am Inhalt (`Archive.format`), nicht an der Endung. Volume-Name ohne `.tar`, Symb
 - Ein TAR hat kein Inhaltsverzeichnis: Öffnen liest es einmal ganz, und jede Datei wird
   beim ersten Zugriff von vorne bis zu ihr entpackt. Bei großen `.tar.gz` mit vielen
   Dateien ist das spürbar langsamer als bei ZIP.
-- `.tar.gz` und `.tar.bz2` meldet macOS nur als gzip- bzw. bzip2-Datei. Zippy ist dafür
-  registriert; steckt kein TAR darin, kommt „Archiv lässt sich nicht öffnen“.
-- `.tar.xz` geht noch nicht (fehlt liblzma, wie bei 7z).
+- `.tar.gz`, `.tar.bz2` und `.tar.xz` meldet macOS nur als gzip-, bzip2- bzw. xz-Datei.
+  Zippy ist dafür registriert; steckt kein TAR darin, kommt „Archiv lässt sich nicht öffnen“.
+
+### 7z
+
+Lesen und Speichern über libarchive, Symbol `7z.icns`. Gespeichert wird mit LZMA2.
+- Testarchive baut das System-tar: `tar --format 7zip -cf x.7z …` (LZMA1, solide).
+- Mit 7-Zip (`brew install sevenzip`, `7zz`) erzeugte Archive gehen mit LZMA, LZMA2, PPMd,
+  BZip2, Deflate, ohne Kompression, BCJ2 und nicht solide (geprüft 13.11.2026). Was Zippy
+  speichert, prüft `7zz t` als fehlerfrei.
+- Solide Archive: Wie bei komprimierten TARs wird jede Datei von vorne bis zu ihr entpackt.
+- Verschlüsselte 7z (nur Daten oder auch Dateinamen) kann libarchive nicht entschlüsseln,
+  auch das System-tar nicht. Zippy lehnt sie beim Öffnen mit einer Meldung ab. Die Tests
+  dazu laufen nur, wenn `/opt/homebrew/bin/7zz` da ist.
 
 ## Zippy mit FUSE-T (aktuelle Variante)
 

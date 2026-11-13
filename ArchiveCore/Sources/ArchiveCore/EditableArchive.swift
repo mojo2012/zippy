@@ -367,7 +367,7 @@ public final class EditableArchive: @unchecked Sendable {
     }
 
     /// Schreibt den aktuellen Stand im Format des Originals nach `destination`:
-    /// ZIP bleibt ZIP, TAR bleibt TAR mit derselben Kompression.
+    /// ZIP bleibt ZIP, TAR bleibt TAR mit derselben Kompression, 7z bleibt 7z (LZMA2).
     ///
     /// Alles wird neu komprimiert (libarchive kann komprimierte Daten nicht direkt
     /// übernehmen). Unveränderte Dateien werden dafür in Archivreihenfolge gelesen.
@@ -396,8 +396,12 @@ public final class EditableArchive: @unchecked Sendable {
                     case .gzip: archive_write_add_filter_gzip(writer)
                     case .bzip2: archive_write_add_filter_bzip2(writer)
                     case .compress: archive_write_add_filter_compress(writer)
+                    case .xz: archive_write_add_filter_xz(writer)
                     }
                 }
+            case .sevenZip:
+                status = archive_write_set_format_7zip(writer)
+                if status == ARCHIVE_OK { status = archive_write_set_options(writer, "7zip:compression=lzma2") }
             }
             guard status == ARCHIVE_OK else { throw ArchiveError.writeFailed(Archive.message(writer)) }
             try? FileManager.default.removeItem(at: destination)

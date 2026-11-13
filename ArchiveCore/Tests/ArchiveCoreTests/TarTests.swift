@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import ArchiveCore
 
-/// TAR, auch mit gzip, bzip2 und compress: lesen, bearbeiten, im selben Format speichern.
+/// TAR, auch mit gzip, bzip2, compress und xz: lesen, bearbeiten, im selben Format speichern.
 @Suite struct TarTests {
     let dir: URL
 
@@ -38,7 +38,8 @@ import Testing
         return String(decoding: try archive.contents(of: entry.id), as: UTF8.self)
     }
 
-    @Test(arguments: [("", ArchiveFormat.tar(.none)), ("z", .tar(.gzip)), ("j", .tar(.bzip2)), ("Z", .tar(.compress))])
+    @Test(arguments: [("", ArchiveFormat.tar(.none)), ("z", .tar(.gzip)), ("j", .tar(.bzip2)), ("Z", .tar(.compress)),
+                      ("J", .tar(.xz))])
     func readsCompressedTars(flags: String, format: ArchiveFormat) throws {
         let big = Data((0..<300_000).map { UInt8($0 % 251) })
         let archive = try Archive(url: makeTar(["a.txt": Data("eins".utf8), "ordner/Grüße.txt": Data("zwei".utf8),
@@ -99,7 +100,7 @@ import Testing
         #expect(saved.index.lookup(path: "symlink")?.symlinkTarget == "original.txt")
     }
 
-    @Test(arguments: [("z", ArchiveFormat.tar(.gzip)), ("j", .tar(.bzip2)), ("", .tar(.none))])
+    @Test(arguments: [("z", ArchiveFormat.tar(.gzip)), ("j", .tar(.bzip2)), ("J", .tar(.xz)), ("", .tar(.none))])
     func savesInSameFormat(flags: String, format: ArchiveFormat) throws {
         let tar = try makeTar(["a.txt": Data("alt".utf8), "weg.txt": Data("x".utf8)], flags: flags)
         let stamp = try EditableArchive.FileStamp(of: tar)

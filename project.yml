@@ -42,18 +42,24 @@ targets:
         CFBundleDocumentTypes:
           - CFBundleTypeName: ZIP-Archiv
             CFBundleTypeRole: Viewer
-            CFBundleTypeIconFile: zip    # Zippy/Resources/Icons; rar/7z liegen bereit
+            CFBundleTypeIconFile: zip    # Zippy/Resources/Icons; rar liegt bereit
             LSHandlerRank: Alternate   # Standard-App wird man über „Öffnen mit → Alle ändern“
             LSItemContentTypes: [com.pkware.zip-archive, public.zip-archive]
           - CFBundleTypeName: TAR-Archiv
             CFBundleTypeRole: Viewer
             CFBundleTypeIconFile: tgz
             LSHandlerRank: Alternate
-            # .tar, .tgz, .tbz; .tar.gz/.tar.bz2/.tar.Z gelten nur als gzip/bzip2/compress.
-            # Ist darin kein TAR, meldet Zippy, dass es das Archiv nicht öffnen kann.
+            # .tar, .tgz, .tbz, .txz; .tar.gz/.tar.bz2/.tar.xz/.tar.Z gelten nur als
+            # gzip/bzip2/xz/compress. Ist darin kein TAR, meldet Zippy, dass es das Archiv
+            # nicht öffnen kann.
             LSItemContentTypes: [public.tar-archive, org.gnu.gnu-tar-archive, org.gnu.gnu-zip-tar-archive,
-                                 public.tar-bzip2-archive, org.gnu.gnu-zip-archive, public.bzip2-archive,
-                                 public.z-archive]
+                                 public.tar-bzip2-archive, org.tukaani.tar-xz-archive, org.gnu.gnu-zip-archive,
+                                 public.bzip2-archive, org.tukaani.xz-archive, public.z-archive]
+          - CFBundleTypeName: 7-Zip-Archiv
+            CFBundleTypeRole: Viewer
+            CFBundleTypeIconFile: 7z
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [org.7-zip.7-zip-archive]
     entitlements:
       path: Zippy/Zippy.entitlements
       properties:

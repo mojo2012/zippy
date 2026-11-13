@@ -25,8 +25,9 @@ The app's dialogs and messages are currently in German.
 | Format | Open | Edit and save |
 |---|---|---|
 | ZIP (`.zip`) | yes | yes |
-| TAR (`.tar`, `.tar.gz`/`.tgz`, `.tar.bz2`/`.tbz`, `.tar.Z`) | yes | yes, same format and compression |
-| 7-Zip, RAR, `.tar.xz` | not yet | not yet |
+| TAR (`.tar`, `.tar.gz`/`.tgz`, `.tar.bz2`/`.tbz`, `.tar.xz`/`.txz`, `.tar.Z`) | yes | yes, same format and compression |
+| 7-Zip (`.7z`) | yes, except encrypted archives | yes, saved with LZMA2 |
+| RAR | not yet | not yet |
 
 ## Requirements
 
@@ -103,8 +104,8 @@ Good to know:
   desktop and in the Finder window.
 - When opening a drive, Finder briefly shows a generic folder icon. This comes from the
   FUSE-T layer, not from Zippy.
-- Big compressed TAR files open more slowly than ZIPs: TAR has no table of contents, so
-  each file is extracted by reading from the start of the archive.
+- Big compressed TAR files and "solid" 7z archives open files more slowly than ZIPs: each
+  file is extracted by reading the compressed data from its start up to that file.
 
 ## Uninstall
 

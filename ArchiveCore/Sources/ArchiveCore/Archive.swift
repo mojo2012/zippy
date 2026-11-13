@@ -27,10 +27,11 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
 public enum ArchiveFormat: Sendable, Equatable {
     case zip
     case tar(Compression)
+    case sevenZip
 
     /// Kompression um ein TAR herum.
     public enum Compression: Sendable, Equatable {
-        case none, gzip, bzip2, compress
+        case none, gzip, bzip2, compress, xz
     }
 
     /// Name des Dokument-Symbols in Zippy/Resources/Icons.
@@ -38,11 +39,12 @@ public enum ArchiveFormat: Sendable, Equatable {
         switch self {
         case .zip: "zip"
         case .tar: "tgz"
+        case .sevenZip: "7z"
         }
     }
 }
 
-/// Ein geöffnetes Archiv (ZIP oder TAR): Index plus Lesezugriff auf Dateien.
+/// Ein geöffnetes Archiv (ZIP, TAR oder 7z): Index plus Lesezugriff auf Dateien.
 ///
 /// Lesen: Beim ersten Zugriff wird die Datei vollständig in einen Cache-Ordner
 /// entpackt, danach wird von dort gelesen. So sind beliebige Offsets möglich,
@@ -80,6 +82,10 @@ public final class Archive: @unchecked Sendable {
         self.source = source
         self.password = password
         (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date)
+        // libarchive kann verschlüsselte 7z-Daten nicht entschlüsseln
+        if format == .sevenZip, index.entries.values.contains(where: { $0.isEncrypted }) {
+            throw ArchiveError.openFailed(Self.encryptedUnsupported)
+        }
         self.cacheDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-\(UUID().uuidString)", isDirectory: true)
     }
@@ -198,6 +204,8 @@ public final class Archive: @unchecked Sendable {
     // archive.h: ARCHIVE_FORMAT_BASE_MASK, ARCHIVE_FORMAT_TAR, ARCHIVE_FORMAT_ZIP
     private static let formatMask: Int32 = 0xff0000
     private static let formatTar: Int32 = 0x30000
+    private static let format7Zip: Int32 = 0xE0000
+    static let encryptedUnsupported = "verschlüsselte 7z-Archive werden noch nicht unterstützt"
 
     private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> (ArchiveIndex, ArchiveFormat) {
         let reader = try ArchiveReader(source: source)
@@ -212,7 +220,10 @@ public final class Archive: @unchecked Sendable {
             let status = archive_read_next_header(archive, &header)
             if status == ARCHIVE_EOF { break }
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
-                throw ArchiveError.openFailed(message(archive))
+                // z. B. 7z mit verschlüsselten Dateinamen: "The archive header is encrypted, …"
+                let reason = message(archive)
+                throw ArchiveError.openFailed(reason.localizedCaseInsensitiveContains("encrypted")
+                                              ? encryptedUnsupported : reason)
             }
             if position == 0 { format = detectFormat(archive) }
             defer {
@@ -269,12 +280,19 @@ public final class Archive: @unchecked Sendable {
     }
 
     private static func detectFormat(_ archive: OpaquePointer) -> ArchiveFormat {
-        guard archive_format(archive) & formatMask == formatTar else { return .zip }
-        return switch archive_filter_code(archive, 0) {
-        case ARCHIVE_FILTER_GZIP: .tar(.gzip)
-        case ARCHIVE_FILTER_BZIP2: .tar(.bzip2)
-        case ARCHIVE_FILTER_COMPRESS: .tar(.compress)
-        default: .tar(.none)
+        switch archive_format(archive) & formatMask {
+        case formatTar:
+            return switch archive_filter_code(archive, 0) {
+            case ARCHIVE_FILTER_GZIP: .tar(.gzip)
+            case ARCHIVE_FILTER_BZIP2: .tar(.bzip2)
+            case ARCHIVE_FILTER_COMPRESS: .tar(.compress)
+            case ARCHIVE_FILTER_XZ: .tar(.xz)
+            default: .tar(.none)
+            }
+        case format7Zip:
+            return .sevenZip
+        default:
+            return .zip
         }
     }
 
@@ -319,6 +337,8 @@ final class ArchiveReader {
         archive_read_support_filter_gzip(archive)
         archive_read_support_filter_bzip2(archive)
         archive_read_support_filter_compress(archive)
+        archive_read_support_filter_xz(archive)
+        archive_read_support_format_7zip(archive)
         if let password {
             for variant in Self.passwordVariants(password) {
                 variant.withUnsafeBufferPointer { _ = archive_read_add_passphrase(archive, $0.baseAddress) }
