@@ -17,6 +17,8 @@ The app's dialogs and messages are currently in German.
   change files. Everything is saved into the archive when you eject.
 - **Password-protected archives:** ZIP (ZipCrypto and WinZip AES) and 7z (AES-256, also
   with encrypted file names). Zippy asks for the password and can store it in your keychain.
+- **File names from any system:** ZIPs packed on Windows without Unicode names (for example
+  in Chinese, Japanese, Russian or old DOS code pages) show their file names correctly.
 - **Lazy extraction:** a file is only extracted when it is first read, so large archives
   open quickly.
 
@@ -60,8 +62,23 @@ in the Finder sidebar.
 
 ## Installation
 
-There is no prebuilt release yet. To build it yourself you need Xcode and
-[XcodeGen](https://github.com/yonaskolb/XcodeGen):
+1. Download `Zippy-<version>.dmg` from the
+   [latest release](https://github.com/mojo2012/zippy/releases/latest), open it and drag
+   Zippy into the Applications folder.
+2. Open Zippy once from the Applications folder. Zippy is not notarized by Apple (that
+   needs a paid developer account), so macOS blocks it the first time. Go to
+   System Settings → Privacy & Security, scroll down and click **Open Anyway** next to
+   Zippy. Alternatively, in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Zippy.app
+   ```
+
+The app runs on Apple silicon and Intel Macs. FUSE-T must be installed as described above.
+
+### Building from source
+
+You need Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```bash
 brew install xcodegen

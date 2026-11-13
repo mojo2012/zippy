@@ -46,6 +46,18 @@ bei roh angehängten Images nicht nach: dann `FSMediaTypes` in `project.yml` anp
 - Kostenloses Personal Team (Apple-ID in Xcode) reicht nicht: "Personal development teams ...
   do not support the FSKit Module capability." → bezahlter Apple-Developer-Account nötig.
 
+## Release bauen
+
+    ./scripts/make-release.sh      # → build/release/Zippy-<version>.dmg und .sha256
+
+Version aus `MARKETING_VERSION` in `project.yml`. Baut Release für arm64 und x86_64,
+signiert ad hoc mit Hardened Runtime und packt ein DMG mit Programme-Verknüpfung,
+„Read Me First.txt“ und dem App-Symbol als Volume-Symbol. Ohne bezahlten Account weder
+Developer-ID noch Notarisierung: Gatekeeper lehnt die heruntergeladene App ab
+(`spctl -a -vv` → rejected), bis man sie unter Datenschutz & Sicherheit freigibt. Das
+„Apple Development“-Zertifikat des kostenlosen Accounts hilft dabei nicht und trüge die
+E-Mail-Adresse in die Signatur, darum ad hoc.
+
 ## ArchiveCore (Archiv-Kern)
 
 Swift-Package mit libarchive: liest das Inhaltsverzeichnis (ZIP, TAR) in einen Ordnerbaum
@@ -58,6 +70,18 @@ und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cac
 
 `build-libarchive.sh` baut liblzma (xz-utils) statisch mit und packt sie in dieselbe
 Bibliothek; damit gehen 7z, `.tar.xz` und LZMA-Einträge in ZIPs.
+
+### Dateinamen ohne UTF-8
+
+ZIPs ohne UTF-8-Kennung (Bit 11) speichern Namen in der Codepage des packenden Systems,
+alte TARs ebenso; libarchive liefert dann nur die rohen Bytes. `Archive.buildIndex` liest
+darum in zwei Durchgängen: erst alle Einträge, dann rät `NameEncoding` einmal pro Archiv
+die Kodierung aller nicht-UTF-8-Namen und dekodiert. Kandidaten: DOS 850/437, Windows-1252,
+GBK, Shift-JIS, Big5, EUC-KR, DOS 866. Bewertet wird, wie gut die Zeichen zur Sprache der
+Kandidatin passen (häufige chinesische Zeichen = in GB2312, Hangul-Silben, Kana …). Die
+Erkennung von macOS (`NSString.stringEncoding(for:)`) taugt für kurze Namen nicht.
+Echte Fälle: GBK von einem chinesischen Hersteller, DOS-0xFF als geschütztes Leerzeichen.
+Gespeichert wird immer als UTF-8.
 
 ### TAR
 

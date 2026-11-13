@@ -20,8 +20,10 @@ final class FuseHelperMounter: ArchiveMounting {
 
     func mountedVolume(for archive: URL) -> URL? {
         let archivePath = archive.standardizedFileURL.path
+        // Auch eingehängt: Nach dem Auswerfen läuft der Hilfsprozess noch kurz weiter (Speichern)
+        let mounted = Set(FuseVolume.mountedPaths())
         return VolumeRecord.all(in: stateDirectory)
-            .first(where: { $0.archive == archivePath && $0.isAlive })
+            .first(where: { $0.archive == archivePath && $0.isAlive && mounted.contains($0.mountPoint) })
             .map { URL(fileURLWithPath: $0.mountPoint) }
     }
 

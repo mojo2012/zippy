@@ -275,6 +275,7 @@ public final class Archive: @unchecked Sendable {
         var format = ArchiveFormat.zip
         var header: OpaquePointer?
         var position = 0
+        var records: [RawEntry] = []
         while true {
             let status = archive_read_next_header(archive, &header)
             if status == ARCHIVE_EOF { break }
@@ -302,9 +303,8 @@ public final class Archive: @unchecked Sendable {
                 position += 1
             }
 
-            guard let rawPath = archive_entry_pathname_utf8(header) ?? archive_entry_pathname(header),
-                  let components = ArchiveIndex.sanitize(String(cString: rawPath)) else {
-                continue   // leerer oder unsicherer Pfad (z. B. "../")
+            guard let path = Name(utf8: archive_entry_pathname_utf8(header), raw: archive_entry_pathname(header)) else {
+                continue
             }
 
             let type = UInt32(archive_entry_filetype(header)) & typeMask
@@ -316,17 +316,6 @@ public final class Archive: @unchecked Sendable {
             default: continue   // Geräte, FIFOs, Sockets aus TARs
             }
 
-            // TAR-Hardlink ohne eigene Daten: Inhalt kommt vom Ziel
-            var size = UInt64(max(0, archive_entry_size(header)))
-            var dataPosition = position
-            if kind == .file, size == 0, let link = archive_entry_hardlink(header) {
-                guard let targetPath = ArchiveIndex.sanitize(String(cString: link)),
-                      let target = index.lookup(path: targetPath.joined(separator: "/")),
-                      target.kind == .file, let targetPosition = target.archiveIndex else { continue }
-                size = target.size
-                dataPosition = targetPosition
-            }
-
             var permissions = UInt16(archive_entry_perm(header) & 0o777)
             if permissions == 0 { permissions = kind == .directory ? 0o755 : 0o644 }
             permissions |= kind == .directory ? 0o500 : 0o400   // Besitzer darf immer lesen
@@ -336,18 +325,83 @@ public final class Archive: @unchecked Sendable {
                        + TimeInterval(archive_entry_mtime_nsec(header)) / 1e9)
                 : rootDate
 
-            var target: String?
-            if kind == .symlink {
-                let raw = archive_entry_symlink_utf8(header) ?? archive_entry_symlink(header)
-                target = raw.map { String(cString: $0) }
-            }
+            let size = UInt64(max(0, archive_entry_size(header)))
+            records.append(RawEntry(
+                path: path, kind: kind, size: size, position: position, permissions: permissions, date: date,
+                symlinkTarget: kind == .symlink ? Name(utf8: archive_entry_symlink_utf8(header),
+                                                       raw: archive_entry_symlink(header)) : nil,
+                // TAR-Hardlink ohne eigene Daten: Inhalt kommt vom Ziel
+                hardlink: kind == .file && size == 0 ? Name(utf8: nil, raw: archive_entry_hardlink(header)) : nil,
+                isEncrypted: archive_entry_is_encrypted(header) != 0))
+        }
 
-            index.insert(path: components, kind: kind, size: size,
-                         modificationDate: date, permissions: permissions, symlinkTarget: target,
-                         isEncrypted: archive_entry_is_encrypted(header) != 0, archiveIndex: dataPosition)
+        // Namen, die kein UTF-8 sind (ZIPs ohne UTF-8-Kennung, alte TARs): Kodierung raten,
+        // einmal für das ganze Archiv
+        let undecoded = records.flatMap { [$0.path, $0.symlinkTarget, $0.hardlink] }.compactMap { $0?.bytes }
+        let encoding = undecoded.isEmpty ? String.Encoding.utf8 : NameEncoding.guess(for: undecoded)
+        func text(_ name: Name) -> String {
+            switch name {
+            case .text(let text): text
+            case .bytes(let data): NameEncoding.decode(data, as: encoding)
+            }
+        }
+
+        for record in records {
+            guard let components = ArchiveIndex.sanitize(text(record.path)) else {
+                continue   // leerer oder unsicherer Pfad (z. B. "../")
+            }
+            var size = record.size
+            var dataPosition = record.position
+            if let link = record.hardlink {
+                guard let targetPath = ArchiveIndex.sanitize(text(link)),
+                      let target = index.lookup(path: targetPath.joined(separator: "/")),
+                      target.kind == .file, let targetPosition = target.archiveIndex else { continue }
+                size = target.size
+                dataPosition = targetPosition
+            }
+            index.insert(path: components, kind: record.kind, size: size,
+                         modificationDate: record.date, permissions: record.permissions,
+                         symlinkTarget: record.symlinkTarget.map(text),
+                         isEncrypted: record.isEncrypted, archiveIndex: dataPosition)
         }
         if position == 0 { format = detectFormat(archive) }   // leeres Archiv
         return (index, format)
+    }
+
+    /// Ein Name aus dem Archiv: schon lesbar, oder rohe Bytes in unbekannter Kodierung.
+    private enum Name {
+        case text(String)
+        case bytes(Data)
+
+        /// libarchive liefert UTF-8, wenn es den Namen umwandeln konnte, sonst nur die Bytes.
+        init?(utf8: UnsafePointer<CChar>?, raw: UnsafePointer<CChar>?) {
+            if let utf8 {
+                self = .text(String(cString: utf8))
+            } else if let raw {
+                let data = Data(bytes: raw, count: strlen(raw))
+                if let text = String(data: data, encoding: .utf8) { self = .text(text) } else { self = .bytes(data) }
+            } else {
+                return nil
+            }
+        }
+
+        var bytes: Data? {
+            if case .bytes(let data) = self { return data }
+            return nil
+        }
+    }
+
+    /// Ein Eintrag, wie er beim ersten Durchgang gelesen wird; Namen werden danach dekodiert.
+    private struct RawEntry {
+        let path: Name
+        let kind: ArchiveEntry.Kind
+        let size: UInt64
+        let position: Int
+        let permissions: UInt16
+        let date: Date
+        let symlinkTarget: Name?
+        let hardlink: Name?
+        let isEncrypted: Bool
     }
 
     private static func detectFormat(_ archive: OpaquePointer) -> ArchiveFormat {
