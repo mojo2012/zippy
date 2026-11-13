@@ -16,9 +16,14 @@ enum PasswordPrompt {
 
     /// `nil`, wenn das Archiv kein Passwort braucht. Wirft ``Cancelled`` bei Abbruch.
     static func password(for archive: URL) async throws -> String? {
-        guard try await Task.detached(operation: { try Archive(url: archive).needsPassword }).value else {
-            return nil
-        }
+        let needsPassword = try await Task.detached {
+            do {
+                return try Archive(url: archive).needsPassword
+            } catch ArchiveError.passwordRequired {
+                return true   // 7z mit verschlüsselten Dateinamen: ohne Passwort nicht einmal auflistbar
+            }
+        }.value
+        guard needsPassword else { return nil }
         let account = archive.standardizedFileURL.path
 
         if let stored = Keychain.load(service: keychainService, account: account),

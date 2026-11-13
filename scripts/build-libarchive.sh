@@ -4,7 +4,7 @@
 #
 # Aus dem macOS-SDK: zlib, bzip2, iconv. Dazu liblzma aus xz-utils, ebenfalls statisch
 # gebaut und mit in die Bibliothek gepackt (für 7z, .tar.xz und LZMA in ZIPs).
-# Kein OpenSSL nötig: AES für ZIPs kommt auf macOS aus CommonCrypto.
+# Kein OpenSSL nötig: AES für ZIPs und 7z kommt auf macOS aus CommonCrypto.
 set -euo pipefail
 
 VERSION=3.8.11
@@ -41,6 +41,8 @@ curl -fsSL -o libarchive.tar.xz "https://www.libarchive.org/downloads/libarchive
 echo "$SHA256  libarchive.tar.xz" | shasum -a 256 -c -
 tar xf libarchive.tar.xz
 cd "libarchive-$VERSION"
+# 7z-Entschlüsselung (AES-256) aus libarchive-PR #3388, noch nicht offiziell übernommen
+patch -p1 --quiet < "$ROOT/scripts/patches/libarchive-7zip-aes.patch"
 
 CFLAGS="$CFLAGS_UNIVERSAL" CPPFLAGS="-I$WORK/xz-install/include" LDFLAGS="-L$WORK/xz-install/lib" \
 ./configure --quiet \

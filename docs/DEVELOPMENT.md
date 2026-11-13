@@ -81,9 +81,17 @@ Lesen und Speichern über libarchive, Symbol `7z.icns`. Gespeichert wird mit LZM
   BZip2, Deflate, ohne Kompression, BCJ2 und nicht solide (geprüft 13.11.2026). Was Zippy
   speichert, prüft `7zz t` als fehlerfrei.
 - Solide Archive: Wie bei komprimierten TARs wird jede Datei von vorne bis zu ihr entpackt.
-- Verschlüsselte 7z (nur Daten oder auch Dateinamen) kann libarchive nicht entschlüsseln,
-  auch das System-tar nicht. Zippy lehnt sie beim Öffnen mit einer Meldung ab. Die Tests
-  dazu laufen nur, wenn `/opt/homebrew/bin/7zz` da ist.
+- Verschlüsselte 7z (AES-256, nur Daten oder auch Dateinamen) entschlüsselt libarchive
+  erst mit `scripts/patches/libarchive-7zip-aes.patch` aus libarchive-PR #3388 (noch nicht
+  übernommen; `build-libarchive.sh` spielt ihn ein). Passt er bei einer neuen libarchive-
+  Version nicht mehr, prüfen, ob der PR inzwischen übernommen ist.
+  - Verschlüsselte Dateinamen: Öffnen ohne Passwort wirft `passwordRequired`, die App
+    fragt dann sofort nach dem Passwort.
+  - Falsches Passwort: 7z prüft es nicht, der falsche Schlüssel ergibt Datenmüll und
+    libarchive meldet „Decompression failed“. Zippy macht daraus `wrongPassword`.
+  - Nur lesbar (`Archive.canSave`): Der Patch kann nicht verschlüsselt schreiben,
+    unverschlüsselt zurückzuschreiben wäre ein stilles Sicherheitsloch.
+  - Tests dazu laufen nur, wenn `/opt/homebrew/bin/7zz` da ist (`brew install sevenzip`).
 
 ### RAR
 

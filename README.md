@@ -15,8 +15,8 @@ The app's dialogs and messages are currently in German.
   with an eject button. Several archives can be open at once.
 - **Edit in place:** add files by drag and drop, delete, rename, move, create folders and
   change files. Everything is saved into the archive when you eject.
-- **Password-protected ZIPs:** ZipCrypto and WinZip AES (128/192/256). Zippy asks for the
-  password and can store it in your keychain.
+- **Password-protected archives:** ZIP (ZipCrypto and WinZip AES) and 7z (AES-256, also
+  with encrypted file names). Zippy asks for the password and can store it in your keychain.
 - **Lazy extraction:** a file is only extracted when it is first read, so large archives
   open quickly.
 
@@ -26,7 +26,7 @@ The app's dialogs and messages are currently in German.
 |---|---|---|
 | ZIP (`.zip`) | yes | yes |
 | TAR (`.tar`, `.tar.gz`/`.tgz`, `.tar.bz2`/`.tbz`, `.tar.xz`/`.txz`, `.tar.Z`) | yes | yes, same format and compression |
-| 7-Zip (`.7z`) | yes, except encrypted archives | yes, saved with LZMA2 |
+| 7-Zip (`.7z`) | yes, also password-protected (incl. encrypted file names) | yes, saved with LZMA2; password-protected 7z open read-only |
 | RAR 4 and 5 (`.rar`) | yes, except encrypted and multi-part archives | no, opens read-only |
 
 ## Requirements

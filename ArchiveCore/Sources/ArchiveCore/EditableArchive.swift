@@ -58,7 +58,7 @@ public final class EditableArchive: @unchecked Sendable {
 
     public init(archive: Archive, readOnly: Bool = false) {
         self.archive = archive
-        self.isReadOnly = readOnly || !archive.format.isWritable
+        self.isReadOnly = readOnly || !archive.canSave
             || (archive.needsPassword && archive.password == nil)
         workDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-edit-\(UUID().uuidString)", isDirectory: true)

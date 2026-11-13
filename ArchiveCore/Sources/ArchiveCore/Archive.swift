@@ -75,10 +75,18 @@ public final class Archive: @unchecked Sendable {
     /// Passwort für verschlüsselte Einträge (ZipCrypto oder AES).
     public let password: String?
 
-    /// Enthält das Archiv verschlüsselte Dateien? Die Namen sind bei ZIP nie
-    /// verschlüsselt, Auflisten geht also immer. TAR kennt keine Verschlüsselung.
+    /// Enthält das Archiv verschlüsselte Dateien? Bei ZIP sind die Namen nie verschlüsselt,
+    /// Auflisten geht also immer. 7z kann auch die Namen verschlüsseln: Dann wirft schon das
+    /// Öffnen ohne Passwort ``ArchiveError/passwordRequired``. TAR kennt keine Verschlüsselung.
     public var needsPassword: Bool {
         index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
+    }
+
+    /// Kann Zippy Änderungen speichern? Nicht bei RAR, und nicht bei verschlüsseltem 7z:
+    /// libarchive kann 7z nur entschlüsseln, nicht verschlüsselt schreiben. Unverschlüsselt
+    /// zurückzuschreiben wäre ein stilles Sicherheitsloch.
+    public var canSave: Bool {
+        format.isWritable && !(format == .sevenZip && needsPassword)
     }
 
     private let cacheDirectory: URL
@@ -109,9 +117,10 @@ public final class Archive: @unchecked Sendable {
     public init(source: any ArchiveSource, date: Date = Date(), password: String? = nil) throws {
         self.source = source
         self.password = password
-        (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date)
-        // Verschlüsselte 7z- und RAR-Daten erkennt libarchive, entschlüsseln kann es sie nicht
-        if format == .sevenZip || format == .rar, index.entries.values.contains(where: { $0.isEncrypted }) {
+        (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date, password: password)
+        // Verschlüsselte RAR-Daten erkennt libarchive, entschlüsseln kann es sie nicht.
+        // 7z geht mit scripts/patches/libarchive-7zip-aes.patch.
+        if format == .rar, index.entries.values.contains(where: { $0.isEncrypted }) {
             throw ArchiveError.openFailed(Self.encryptedUnsupported(format))
         }
         self.cacheDirectory = FileManager.default.temporaryDirectory
@@ -171,7 +180,13 @@ public final class Archive: @unchecked Sendable {
 
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
             let file = cacheDirectory.appendingPathComponent(String(entry.id))
-            try extract(position: position, to: file)
+            do {
+                try extract(position: position, to: file)
+            } catch ArchiveError.readFailed where format == .sevenZip && entry.isEncrypted {
+                // 7z prüft das Passwort nicht: Ein falscher Schlüssel ergibt Datenmüll, den
+                // erst das Entpacken bemerkt ("Decompression failed", Prüfsummenfehler).
+                throw ArchiveError.wrongPassword
+            }
             extracted[entry.id] = file
             return file
         }
@@ -240,8 +255,10 @@ public final class Archive: @unchecked Sendable {
         "verschlüsselte \(format.displayName)-Archive werden noch nicht unterstützt"
     }
 
-    private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> (ArchiveIndex, ArchiveFormat) {
-        let reader = try ArchiveReader(source: source)
+    /// `password` braucht es nur bei 7z mit verschlüsselten Dateinamen.
+    private static func buildIndex(source: any ArchiveSource, rootDate: Date,
+                                   password: String?) throws -> (ArchiveIndex, ArchiveFormat) {
+        let reader = try ArchiveReader(source: source, password: password)
         let archive = reader.archive
         defer { reader.close() }
 
@@ -253,9 +270,20 @@ public final class Archive: @unchecked Sendable {
             let status = archive_read_next_header(archive, &header)
             if status == ARCHIVE_EOF { break }
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
-                // Verschlüsselte Dateinamen, z. B. "The archive header is encrypted, …" (7z),
-                // "RAR encryption support unavailable." oder "Encryption is not supported" (RAR)
+                // Verschlüsselte Dateinamen: 7z meldet "Passphrase required …" bzw. "Incorrect
+                // passphrase"; RAR "RAR encryption support unavailable." / "Encryption is not supported"
                 let reason = message(archive)
+                if reason.localizedCaseInsensitiveContains("passphrase required") {
+                    throw ArchiveError.passwordRequired
+                }
+                if reason.localizedCaseInsensitiveContains("incorrect passphrase") {
+                    throw ArchiveError.wrongPassword
+                }
+                // 7z mit verschlüsselten Dateinamen und falschem Passwort: Der entschlüsselte
+                // Kopf ist Datenmüll, libarchive meldet einen Entpackfehler.
+                if password != nil, detectFormat(archive) == .sevenZip {
+                    throw ArchiveError.wrongPassword
+                }
                 throw ArchiveError.openFailed(reason.localizedCaseInsensitiveContains("encrypt")
                                               ? encryptedUnsupported(detectFormat(archive)) : reason)
             }

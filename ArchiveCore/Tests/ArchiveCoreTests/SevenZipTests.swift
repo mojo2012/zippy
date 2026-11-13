@@ -82,20 +82,54 @@ import Testing
         #expect(try run("/usr/bin/tar", ["-tf", original.path]).contains("big.bin"))
     }
 
-    /// Verschlüsselt (Daten bzw. auch Dateinamen) kann libarchive 7z nicht lesen: klare Meldung.
+    /// Verschlüsseltes 7z (Daten bzw. auch Dateinamen) über den AES-Patch für libarchive.
     /// Braucht `7zz` (brew install sevenzip) zum Erzeugen.
-    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/7zz")),
-          arguments: [false, true])
-    func rejectsEncrypted(encryptedNames: Bool) throws {
-        let src = dir.appendingPathComponent("enc-src", isDirectory: true)
-        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+    private func makeEncrypted7z(encryptedNames: Bool) throws -> URL {
+        let src = dir.appendingPathComponent("enc-src-\(encryptedNames)", isDirectory: true)
+        try FileManager.default.createDirectory(at: src.appendingPathComponent("Ordner"), withIntermediateDirectories: true)
         try Data("geheim".utf8).write(to: src.appendingPathComponent("geheim.txt"))
+        try big.write(to: src.appendingPathComponent("Ordner/big.bin"))
         let archive = dir.appendingPathComponent("enc-\(encryptedNames).7z")
-        try run("/opt/homebrew/bin/7zz", ["a", "-bso0", "-pgeheim", "-mhe=\(encryptedNames ? "on" : "off")",
-                                          archive.path, src.appendingPathComponent("geheim.txt").path])
-        #expect(throws: ArchiveError.openFailed(Archive.encryptedUnsupported(.sevenZip))) {
-            try Archive(url: archive, password: "geheim")
-        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/7zz")
+        process.arguments = ["a", "-bso0", "-pgeheim", "-mhe=\(encryptedNames ? "on" : "off")", archive.path, "."]
+        process.currentDirectoryURL = src
+        try process.run()
+        process.waitUntilExit()
+        #expect(process.terminationStatus == 0)
+        return archive
+    }
+
+    static let has7zz = FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/7zz")
+
+    @Test(.enabled(if: has7zz), arguments: [false, true])
+    func readsEncrypted(encryptedNames: Bool) throws {
+        let url = try makeEncrypted7z(encryptedNames: encryptedNames)
+        let archive = try Archive(url: url, password: "geheim")
+        #expect(archive.needsPassword)
+        try archive.checkPassword()
+        #expect(try text(archive, "geheim.txt") == "geheim")
+        let entry = try #require(archive.index.lookup(path: "Ordner/big.bin"))
+        #expect(try archive.contents(of: entry.id) == big)
+        // Speichern würde unverschlüsselt schreiben: darum nur lesbar
+        #expect(!archive.canSave)
+        #expect(EditableArchive(archive: archive).isReadOnly)
+    }
+
+    @Test(.enabled(if: has7zz))
+    func encryptedDataNeedsPassword() throws {
+        let url = try makeEncrypted7z(encryptedNames: false)
+        let listed = try Archive(url: url)   // Namen sind lesbar
+        #expect(listed.needsPassword)
+        #expect(throws: ArchiveError.passwordRequired) { try listed.checkPassword() }
+        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: url, password: "falsch").checkPassword() }
+    }
+
+    @Test(.enabled(if: has7zz))
+    func encryptedNamesNeedPasswordToOpen() throws {
+        let url = try makeEncrypted7z(encryptedNames: true)
+        #expect(throws: ArchiveError.passwordRequired) { try Archive(url: url) }
+        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: url, password: "falsch") }
     }
 
     @Test func copyKeepsExtension() {
