@@ -65,7 +65,7 @@ zf_mount *zf_mount_new(const char *mountpoint, const char *options,
 }
 
 // Bewusst die einfache Schleife: fuse_loop_mt von FUSE-T 1.2.9 kehrt nach dem
-// Aushängen nicht zurück (wartet ewig auf ein Semaphor). ZipArchive ist trotzdem
+// Aushängen nicht zurück (wartet ewig auf ein Semaphor). Archive ist trotzdem
 // thread-sicher, falls später mehrfädig gearbeitet wird.
 int zf_mount_loop(zf_mount *m) { return api.loop(m->fs); }
 

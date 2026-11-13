@@ -1,15 +1,16 @@
+import ArchiveCore
 import Foundation
 import FuseMount
 
-/// Mountet über FUSE-T oder macFUSE. Pro Archiv ein Hilfsprozess (``ServeCommand``),
-/// der das Volume im Haupt-Thread bereitstellt und sich beim Auswerfen beendet.
+/// Mountet über FUSE-T (FSKit oder NFS) oder macFUSE. Pro Archiv ein Hilfsprozess
+/// (``ServeCommand``), der das Volume im Haupt-Thread bereitstellt und sich beim
+/// Auswerfen beendet.
 @MainActor
 final class FuseHelperMounter: ArchiveMounting {
-    /// Standard FUSE-T; macFUSE mit
-    /// `defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse`.
+    /// Standard: FUSE-T über FSKit, wenn möglich, sonst über NFS. Fest einstellen mit
+    /// `defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t|fuse-t-fskit|macfuse`.
     private let backend = FuseBackend.choose(setting: UserDefaults.standard.string(forKey: "Backend"))
     private let stateDirectory = ZippyPaths.stateDirectory
-    private var mountDirectory: URL { backend.mountDirectory(stateDirectory: stateDirectory) }
     /// In diesem Lauf vergebene Namen.
     private var reservedNames: Set<String> = []
 
@@ -26,9 +27,26 @@ final class FuseHelperMounter: ArchiveMounting {
 
     func mount(_ archive: URL, password: String?) async throws -> URL {
         let archivePath = archive.standardizedFileURL.path
+        let name = Archive.volumeName(for: archive)
+        let backend = await usableBackend()
+        do {
+            return try await mount(archivePath, name: name, password: password, backend: backend)
+        } catch let failure as MountFailure where backend == .fuseTFSKit {
+            // Meist ist die FSKit-Erweiterung von FUSE-T in den Systemeinstellungen aus.
+            // Ob sie an ist, verrät FSKit fremden Apps nicht, darum erst hier.
+            log.info("FSKit-Mount gescheitert (\(failure.message, privacy: .public)), nutze NFS")
+            return try await mount(archivePath, name: name, password: password, backend: .fuseT)
+        }
+    }
 
-        let name = archive.deletingPathExtension().lastPathComponent
-        let mountPoint = uniqueMountPoint(for: name)
+    /// Das Volume selbst ist nicht erschienen (anders als z. B. ein unlesbares Archiv).
+    private struct MountFailure: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    private func mount(_ archivePath: String, name: String, password: String?, backend: FuseBackend) async throws -> URL {
+        let mountPoint = uniqueMountPoint(for: name, backend: backend)
 
         let helper = Process()
         helper.executableURL = Bundle.main.executableURL
@@ -40,7 +58,7 @@ final class FuseHelperMounter: ArchiveMounting {
         let output = Pipe()
         helper.standardOutput = output
 
-        // Erste Zeile des Hilfsprozesses: READY oder ERROR <text>.
+        // Erste Zeile des Hilfsprozesses: READY, MOUNTFAILED <text> oder ERROR <text>.
         // Endet er vorher, gilt das als Fehler.
         let line: String = try await withCheckedThrowingContinuation { continuation in
             let once = Once(continuation)
@@ -66,13 +84,28 @@ final class FuseHelperMounter: ArchiveMounting {
 
         guard line == "READY" else {
             try? FileManager.default.removeItem(at: mountPoint)
+            reservedNames.remove(mountPoint.lastPathComponent)
+            if line.hasPrefix("MOUNTFAILED ") { throw MountFailure(message: String(line.dropFirst(12))) }
             throw MountError(message: line.hasPrefix("ERROR ") ? String(line.dropFirst(6)) : line)
         }
         return mountPoint
     }
 
+    /// FUSE-T über FSKit nur, wenn /Volumes/Zippy bereitsteht (beim ersten Mal mit
+    /// Admin-Passwort eingerichtet). Sonst NFS.
+    private func usableBackend() async -> FuseBackend {
+        guard backend == .fuseTFSKit else { return backend }
+        if VolumesFolder.isUsable { return .fuseTFSKit }
+        if !VolumesFolder.isInstalled, !VolumesFolder.wasDeclined, await VolumesFolder.install() {
+            return .fuseTFSKit
+        }
+        log.info("\(VolumesFolder.url.path, privacy: .public) fehlt, nutze NFS")
+        return .fuseT
+    }
+
     /// "Name", sonst "Name 2", "Name 3" … wenn schon belegt.
-    private func uniqueMountPoint(for name: String) -> URL {
+    private func uniqueMountPoint(for name: String, backend: FuseBackend) -> URL {
+        let mountDirectory = backend.mountDirectory(stateDirectory: stateDirectory, volumesFolder: VolumesFolder.url)
         let name = backend.directoryName(for: name)
         var candidate = name
         var counter = 2
@@ -94,6 +127,7 @@ final class FuseHelperMounter: ArchiveMounting {
 
         for record in records where !record.isAlive {
             if mounted.contains(record.mountPoint) { Darwin.unmount(record.mountPoint, MNT_FORCE) }
+            rmdir(record.mountPoint)   // nur, wenn leer (z. B. in /Volumes/Zippy)
             record.remove()
         }
         let entries = (try? FileManager.default.contentsOfDirectory(at: stateDirectory, includingPropertiesForKeys: nil)) ?? []

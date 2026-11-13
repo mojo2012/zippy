@@ -2,7 +2,7 @@ import FuseMount
 
 /// FUSE-Variante: FUSE-T oder macFUSE, ein Hilfsprozess pro Volume.
 enum Variant {
-    /// `Zippy --serve <backend> <zip> <mountpunkt> <name>` startet den Hilfsprozess
+    /// `Zippy --serve <backend> <archiv> <mountpunkt> <name>` startet den Hilfsprozess
     /// und kehrt nicht zurück.
     static func handleCommandLine() {
         let args = CommandLine.arguments

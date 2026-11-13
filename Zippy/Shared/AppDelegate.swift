@@ -39,8 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Ohne Datei gestartet (z. B. Doppelklick auf die App): kurz erklären, beenden.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             guard !receivedFiles else { return }
-            alert("Zippy öffnet ZIP-Archive als Volume.",
-                  info: "Doppelklicke ein ZIP oder wähle im Finder „Öffnen mit → Zippy“.")
+            alert("Zippy öffnet ZIP- und TAR-Archive als Volume.",
+                  info: "Doppelklicke ein Archiv oder wähle im Finder „Öffnen mit → Zippy“.")
             NSApp.terminate(nil)
         }
     }
@@ -115,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
         let alert = NSAlert()
         alert.messageText = "Zippy braucht \(missing.name)."
-        alert.informativeText = "\(missing.name) stellt die Volumes bereit und ist kostenlos. Danach das ZIP erneut öffnen."
+        alert.informativeText = "\(missing.name) stellt die Volumes bereit und ist kostenlos. Danach das Archiv erneut öffnen."
         alert.addButton(withTitle: "\(missing.name) laden")
         alert.addButton(withTitle: "Abbrechen")
         if alert.runModal() == .alertFirstButtonReturn {

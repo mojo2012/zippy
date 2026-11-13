@@ -15,7 +15,7 @@ func usage() -> Never {
     exit(2)
 }
 
-func printTree(_ archive: ZipArchive, _ id: UInt64, indent: String = "") {
+func printTree(_ archive: Archive, _ id: UInt64, indent: String = "") {
     for entry in archive.index.children(of: id) {
         let suffix = switch entry.kind {
         case .directory: "/"
@@ -31,7 +31,7 @@ let args = CommandLine.arguments
 guard args.count >= 3 else { usage() }
 
 do {
-    let archive = try ZipArchive(url: URL(fileURLWithPath: args[2]), password: args.count >= 5 ? args[4] : nil)
+    let archive = try Archive(url: URL(fileURLWithPath: args[2]), password: args.count >= 5 ? args[4] : nil)
     switch args[1] {
     case "ls":
         printTree(archive, ArchiveIndex.rootID)

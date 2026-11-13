@@ -16,7 +16,7 @@ enum PasswordPrompt {
 
     /// `nil`, wenn das Archiv kein Passwort braucht. Wirft ``Cancelled`` bei Abbruch.
     static func password(for archive: URL) async throws -> String? {
-        guard try await Task.detached(operation: { try ZipArchive(url: archive).needsPassword }).value else {
+        guard try await Task.detached(operation: { try Archive(url: archive).needsPassword }).value else {
             return nil
         }
         let account = archive.standardizedFileURL.path
@@ -43,7 +43,7 @@ enum PasswordPrompt {
     private static func isCorrect(_ password: String, for archive: URL) async -> Bool {
         await Task.detached {
             do {
-                try ZipArchive(url: archive, password: password).checkPassword()
+                try Archive(url: archive, password: password).checkPassword()
                 return true
             } catch {
                 return false

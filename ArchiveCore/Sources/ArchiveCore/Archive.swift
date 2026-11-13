@@ -23,21 +23,42 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
     }
 }
 
-/// Ein geöffnetes ZIP-Archiv: Index plus Lesezugriff auf Dateien.
+/// Archivformat, beim Öffnen am Inhalt erkannt. Bestimmt, wie gespeichert wird.
+public enum ArchiveFormat: Sendable, Equatable {
+    case zip
+    case tar(Compression)
+
+    /// Kompression um ein TAR herum.
+    public enum Compression: Sendable, Equatable {
+        case none, gzip, bzip2, compress
+    }
+
+    /// Name des Dokument-Symbols in Zippy/Resources/Icons.
+    public var iconName: String {
+        switch self {
+        case .zip: "zip"
+        case .tar: "tgz"
+        }
+    }
+}
+
+/// Ein geöffnetes Archiv (ZIP oder TAR): Index plus Lesezugriff auf Dateien.
 ///
 /// Lesen: Beim ersten Zugriff wird die Datei vollständig in einen Cache-Ordner
 /// entpackt, danach wird von dort gelesen. So sind beliebige Offsets möglich,
 /// auch wenn der Eintrag komprimiert ist. Der Cache wird bei ``close()`` gelöscht.
+/// Bei komprimierten TARs heißt Entpacken: von vorne bis zur Datei durchlesen.
 ///
 /// Thread-sicher: Entpacken passiert nacheinander, Lesen aus dem Cache parallel.
-public final class ZipArchive: @unchecked Sendable {
+public final class Archive: @unchecked Sendable {
     public let source: any ArchiveSource
     public let index: ArchiveIndex
+    public let format: ArchiveFormat
     /// Passwort für verschlüsselte Einträge (ZipCrypto oder AES).
     public let password: String?
 
     /// Enthält das Archiv verschlüsselte Dateien? Die Namen sind bei ZIP nie
-    /// verschlüsselt, Auflisten geht also immer.
+    /// verschlüsselt, Auflisten geht also immer. TAR kennt keine Verschlüsselung.
     public var needsPassword: Bool {
         index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
     }
@@ -58,12 +79,18 @@ public final class ZipArchive: @unchecked Sendable {
     public init(source: any ArchiveSource, date: Date = Date(), password: String? = nil) throws {
         self.source = source
         self.password = password
-        self.index = try Self.buildIndex(source: source, rootDate: date)
+        (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date)
         self.cacheDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-\(UUID().uuidString)", isDirectory: true)
     }
 
     deinit { close() }
+
+    /// Name des Volumes: Dateiname ohne Endung, bei "x.tar.gz" ohne beide.
+    public static func volumeName(for url: URL) -> String {
+        let stem = url.deletingPathExtension().lastPathComponent
+        return (stem as NSString).pathExtension.lowercased() == "tar" ? (stem as NSString).deletingPathExtension : stem
+    }
 
     /// Löscht den Cache. Danach entpackt ``read(_:offset:length:)`` bei Bedarf neu.
     public func close() {
@@ -166,13 +193,19 @@ public final class ZipArchive: @unchecked Sendable {
     private static let typeMask: UInt32 = 0o170000
     private static let typeDirectory: UInt32 = 0o040000
     private static let typeSymlink: UInt32 = 0o120000
+    private static let typeRegular: UInt32 = 0o100000
 
-    private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> ArchiveIndex {
+    // archive.h: ARCHIVE_FORMAT_BASE_MASK, ARCHIVE_FORMAT_TAR, ARCHIVE_FORMAT_ZIP
+    private static let formatMask: Int32 = 0xff0000
+    private static let formatTar: Int32 = 0x30000
+
+    private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> (ArchiveIndex, ArchiveFormat) {
         let reader = try ArchiveReader(source: source)
         let archive = reader.archive
         defer { reader.close() }
 
         var index = ArchiveIndex(rootDate: rootDate)
+        var format = ArchiveFormat.zip
         var header: OpaquePointer?
         var position = 0
         while true {
@@ -181,6 +214,7 @@ public final class ZipArchive: @unchecked Sendable {
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
                 throw ArchiveError.openFailed(message(archive))
             }
+            if position == 0 { format = detectFormat(archive) }
             defer {
                 archive_read_data_skip(archive)
                 position += 1
@@ -192,10 +226,23 @@ public final class ZipArchive: @unchecked Sendable {
             }
 
             let type = UInt32(archive_entry_filetype(header)) & typeMask
-            let kind: ArchiveEntry.Kind = switch type {
-            case typeDirectory: .directory
-            case typeSymlink: .symlink
-            default: .file
+            let kind: ArchiveEntry.Kind
+            switch type {
+            case typeDirectory: kind = .directory
+            case typeSymlink: kind = .symlink
+            case typeRegular, 0: kind = .file
+            default: continue   // Geräte, FIFOs, Sockets aus TARs
+            }
+
+            // TAR-Hardlink ohne eigene Daten: Inhalt kommt vom Ziel
+            var size = UInt64(max(0, archive_entry_size(header)))
+            var dataPosition = position
+            if kind == .file, size == 0, let link = archive_entry_hardlink(header) {
+                guard let targetPath = ArchiveIndex.sanitize(String(cString: link)),
+                      let target = index.lookup(path: targetPath.joined(separator: "/")),
+                      target.kind == .file, let targetPosition = target.archiveIndex else { continue }
+                size = target.size
+                dataPosition = targetPosition
             }
 
             var permissions = UInt16(archive_entry_perm(header) & 0o777)
@@ -213,11 +260,22 @@ public final class ZipArchive: @unchecked Sendable {
                 target = raw.map { String(cString: $0) }
             }
 
-            index.insert(path: components, kind: kind, size: UInt64(max(0, archive_entry_size(header))),
+            index.insert(path: components, kind: kind, size: size,
                          modificationDate: date, permissions: permissions, symlinkTarget: target,
-                         isEncrypted: archive_entry_is_encrypted(header) != 0, archiveIndex: position)
+                         isEncrypted: archive_entry_is_encrypted(header) != 0, archiveIndex: dataPosition)
         }
-        return index
+        if position == 0 { format = detectFormat(archive) }   // leeres Archiv
+        return (index, format)
+    }
+
+    private static func detectFormat(_ archive: OpaquePointer) -> ArchiveFormat {
+        guard archive_format(archive) & formatMask == formatTar else { return .zip }
+        return switch archive_filter_code(archive, 0) {
+        case ARCHIVE_FILTER_GZIP: .tar(.gzip)
+        case ARCHIVE_FILTER_BZIP2: .tar(.bzip2)
+        case ARCHIVE_FILTER_COMPRESS: .tar(.compress)
+        default: .tar(.none)
+        }
     }
 
     // MARK: libarchive
@@ -257,6 +315,10 @@ final class ArchiveReader {
         self.state = Unmanaged.passRetained(State(source: source))
 
         archive_read_support_format_zip(archive)
+        archive_read_support_format_tar(archive)
+        archive_read_support_filter_gzip(archive)
+        archive_read_support_filter_bzip2(archive)
+        archive_read_support_filter_compress(archive)
         if let password {
             for variant in Self.passwordVariants(password) {
                 variant.withUnsafeBufferPointer { _ = archive_read_add_passphrase(archive, $0.baseAddress) }
@@ -293,7 +355,7 @@ final class ArchiveReader {
         }
 
         guard archive_read_open1(archive) == ARCHIVE_OK else {
-            let reason = ZipArchive.message(archive)
+            let reason = Archive.message(archive)
             close()
             throw ArchiveError.openFailed(reason)
         }

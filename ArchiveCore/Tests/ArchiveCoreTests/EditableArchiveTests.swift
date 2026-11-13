@@ -32,19 +32,19 @@ import Testing
     }
 
     /// Speichert und öffnet das Ergebnis neu, wie beim nächsten Mounten.
-    private func saveAndReopen(_ editable: EditableArchive, password: String? = nil) throws -> ZipArchive {
+    private func saveAndReopen(_ editable: EditableArchive, password: String? = nil) throws -> Archive {
         let output = dir.appendingPathComponent("out-\(UUID().uuidString.prefix(6)).zip")
         try editable.save(to: output)
-        return try ZipArchive(url: output, password: password)
+        return try Archive(url: output, password: password)
     }
 
-    private func text(_ archive: ZipArchive, _ path: String) throws -> String? {
+    private func text(_ archive: Archive, _ path: String) throws -> String? {
         guard let entry = archive.index.lookup(path: path) else { return nil }
         return String(decoding: try archive.contents(of: entry.id), as: UTF8.self)
     }
 
     @Test func unchangedArchiveHasNoChanges() throws {
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["a.txt": Data("a".utf8)])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["a.txt": Data("a".utf8)])))
         #expect(!editable.hasChanges)
         #expect(editable.children(of: EditableArchive.rootID).map(\.name) == ["a.txt"])
     }
@@ -52,7 +52,7 @@ import Testing
     @Test func addModifyDeleteRename() throws {
         let zip = try makeZip(["a.txt": Data("alt".utf8), "ordner/big.bin": big,
                                "weg.txt": Data("x".utf8), "ordner/b.txt": Data("b".utf8)])
-        let editable = EditableArchive(archive: try ZipArchive(url: zip))
+        let editable = EditableArchive(archive: try Archive(url: zip))
 
         // neu
         let neu = try editable.createFile(at: "/neu.txt")
@@ -88,7 +88,7 @@ import Testing
     /// Der Finder schickt Namen zerlegt (NFD). Im ZIP sollen sie zusammengesetzt
     /// stehen, mit UTF-8-Kennung, sonst zeigt Windows Zeichensalat.
     @Test func savesNamesAsUTF8NFC() throws {
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["a.txt": Data("a".utf8)])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["a.txt": Data("a".utf8)])))
         try editable.createFile(at: "Gru\u{308}ße.txt")
         let output = dir.appendingPathComponent("namen.zip")
         try editable.save(to: output)
@@ -108,7 +108,7 @@ import Testing
     }
 
     @Test func truncateAndReadBack() throws {
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["big.bin": big])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["big.bin": big])))
         let node = try #require(editable.node(at: "big.bin"))
         try editable.truncate(node.id, to: 1000)
         #expect(editable.node(node.id)?.size == 1000)
@@ -119,7 +119,7 @@ import Testing
     }
 
     @Test func posixErrors() throws {
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["d/x.txt": Data("x".utf8)])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["d/x.txt": Data("x".utf8)])))
         #expect(throws: POSIXError(.EEXIST)) { try editable.createFile(at: "d/x.txt") }
         #expect(throws: POSIXError(.ENOENT)) { try editable.createFile(at: "fehlt/y.txt") }
         #expect(throws: POSIXError(.ENOTDIR)) { try editable.createFile(at: "d/x.txt/y") }
@@ -131,7 +131,7 @@ import Testing
 
     @Test func renameReplacesExistingFile() throws {
         // So speichern viele Programme: neue Datei schreiben, dann über das Original schieben
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["doc.txt": Data("v1".utf8)])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["doc.txt": Data("v1".utf8)])))
         let temp = try editable.createFile(at: ".doc.txt.sb-1234")
         try editable.write(temp.id, data: Data("v2".utf8), at: 0)
         try editable.move(from: ".doc.txt.sb-1234", to: "doc.txt")
@@ -141,7 +141,7 @@ import Testing
     }
 
     @Test func systemFilesAreNotSaved() throws {
-        let editable = EditableArchive(archive: try ZipArchive(url: makeZip(["a.txt": Data("a".utf8)])))
+        let editable = EditableArchive(archive: try Archive(url: makeZip(["a.txt": Data("a".utf8)])))
         let store = try editable.createFile(at: ".DS_Store")
         try editable.write(store.id, data: Data("finder".utf8), at: 0)
         try editable.createDirectory(at: ".TemporaryItems")
@@ -161,25 +161,25 @@ import Testing
     @Test func encryptedArchiveStaysEncrypted() throws {
         let zip = try makeZip(["geheim.txt": Data("geheim".utf8), "anders.txt": Data("x".utf8)],
                               arguments: ["-P", "pw"])
-        let editable = EditableArchive(archive: try ZipArchive(url: zip, password: "pw"))
+        let editable = EditableArchive(archive: try Archive(url: zip, password: "pw"))
         #expect(!editable.isReadOnly)
         let neu = try editable.createFile(at: "neu.txt")
         try editable.write(neu.id, data: Data("auch geheim".utf8), at: 0)
 
         let output = dir.appendingPathComponent("verschluesselt.zip")
         try editable.save(to: output)
-        let saved = try ZipArchive(url: output, password: "pw")
+        let saved = try Archive(url: output, password: "pw")
         #expect(saved.needsPassword)
         #expect(saved.index.entries.values.filter { $0.kind == .file }.allSatisfy { $0.isEncrypted })
         #expect(try text(saved, "geheim.txt") == "geheim")
         #expect(try text(saved, "neu.txt") == "auch geheim")
-        let wrong = try ZipArchive(url: output, password: "falsch")
+        let wrong = try Archive(url: output, password: "falsch")
         #expect(throws: ArchiveError.wrongPassword) { try wrong.checkPassword() }
     }
 
     @Test func encryptedWithoutPasswordIsReadOnly() throws {
         let zip = try makeZip(["geheim.txt": Data("geheim".utf8)], arguments: ["-P", "pw"])
-        let editable = EditableArchive(archive: try ZipArchive(url: zip))
+        let editable = EditableArchive(archive: try Archive(url: zip))
         #expect(editable.isReadOnly)
         #expect(throws: POSIXError(.EROFS)) { try editable.createFile(at: "neu.txt") }
     }
@@ -187,10 +187,10 @@ import Testing
     @Test func saveReplacingOriginal() throws {
         let zip = try makeZip(["a.txt": Data("a".utf8)])
         let stamp = try EditableArchive.FileStamp(of: zip)
-        let editable = EditableArchive(archive: try ZipArchive(url: zip))
+        let editable = EditableArchive(archive: try Archive(url: zip))
         try editable.createFile(at: "b.txt")
         #expect(try editable.saveReplacing(zip, ifUnchangedSince: stamp) == zip)
-        #expect(try ZipArchive(url: zip).index.lookup(path: "b.txt") != nil)
+        #expect(try Archive(url: zip).index.lookup(path: "b.txt") != nil)
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.contains(".zippy-") }
         #expect(leftovers.isEmpty)
     }
@@ -198,7 +198,7 @@ import Testing
     @Test func originalChangedElsewhereGetsCopy() throws {
         let zip = try makeZip(["a.txt": Data("a".utf8)])
         let stamp = try EditableArchive.FileStamp(of: zip)
-        let editable = EditableArchive(archive: try ZipArchive(url: zip))
+        let editable = EditableArchive(archive: try Archive(url: zip))
         try editable.createFile(at: "b.txt")
         // Jemand anderes überschreibt das ZIP, während es gemountet ist
         let other = try Data(contentsOf: makeZip(["fremd.txt": Data("f".utf8)]))
@@ -207,6 +207,6 @@ import Testing
         let target = try editable.saveReplacing(zip, ifUnchangedSince: stamp)
         #expect(target.lastPathComponent == zip.deletingPathExtension().lastPathComponent + " (bearbeitet).zip")
         #expect(try Data(contentsOf: zip) == other)
-        #expect(try ZipArchive(url: target).index.lookup(path: "b.txt") != nil)
+        #expect(try Archive(url: target).index.lookup(path: "b.txt") != nil)
     }
 }

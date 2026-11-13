@@ -24,25 +24,26 @@ enum ServeCommand {
         let password = input.isEmpty ? nil : String(decoding: input, as: UTF8.self)
 
         let archiveURL = URL(fileURLWithPath: archivePath)
-        let archive: ZipArchive
+        let archive: Archive
         let stamp: EditableArchive.FileStamp
         do {
             stamp = try EditableArchive.FileStamp(of: archiveURL)
-            archive = try ZipArchive(url: archiveURL, password: password)
+            archive = try Archive(url: archiveURL, password: password)
         } catch {
             report("ERROR \(error.localizedDescription)")
             exit(1)
         }
-        // Beschreibbar, wenn sich das ZIP ersetzen lässt (Datei und Ordner schreibbar)
+        // Beschreibbar, wenn sich das Archiv ersetzen lässt (Datei und Ordner schreibbar)
         let fileManager = FileManager.default
         let writable = fileManager.isWritableFile(atPath: archivePath)
             && fileManager.isWritableFile(atPath: archiveURL.deletingLastPathComponent().path)
         let files = EditableArchive(archive: archive, readOnly: !writable)
 
         FuseVolume.serve(files, name: name, at: mountPoint, backend: backend,
-                         volumeIcon: Bundle.main.url(forResource: "zip", withExtension: "icns")) { error in
+                         volumeIcon: Bundle.main.url(forResource: archive.format.iconName, withExtension: "icns")) { error in
             if let error {
-                report("ERROR \(error.localizedDescription)")
+                // Eigene Kennung: Die App versucht dann ein anderes Backend
+                report("MOUNTFAILED \(error.localizedDescription)")
                 try? FileManager.default.removeItem(at: mountPoint)
                 exit(1)   // die Schleife kehrt ohne Mount nicht zurück
             } else {
@@ -51,7 +52,7 @@ enum ServeCommand {
             }
         }
 
-        // Ausgehängt: Änderungen jetzt ins ZIP schreiben
+        // Ausgehängt: Änderungen jetzt ins Archiv schreiben
         if files.hasChanges { save(files, to: archiveURL, stamp: stamp, name: name) }
         files.close()
         archive.close()

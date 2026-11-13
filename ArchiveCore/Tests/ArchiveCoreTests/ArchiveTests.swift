@@ -3,7 +3,7 @@ import Testing
 @testable import ArchiveCore
 
 /// Test-ZIPs werden zur Laufzeit mit /usr/bin/zip bzw. python3 erzeugt.
-@Suite struct ZipArchiveTests {
+@Suite struct ArchiveTests {
     let dir: URL
 
     init() throws {
@@ -73,7 +73,7 @@ import Testing
             "a/b/c.txt": Data("tief".utf8),
             "a/x.txt": Data("x".utf8),
         ])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let index = archive.index
 
         #expect(index.children(of: ArchiveIndex.rootID).map(\.name) == ["a", "readme.txt"])
@@ -89,7 +89,7 @@ import Testing
     @Test func readsWholeFilesAndRanges() throws {
         let big = randomData(1_500_000)
         let zip = try makeZip("data.zip", files: ["big.bin": big, "small.txt": Data("hallo".utf8)])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let entry = try #require(archive.index.lookup(path: "big.bin"))
 
         #expect(try archive.contents(of: entry.id) == big)
@@ -105,7 +105,7 @@ import Testing
     @Test func readsConcurrently() async throws {
         let big = randomData(800_000)
         let zip = try makeZip("parallel.zip", files: ["big.bin": big])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let id = try #require(archive.index.lookup(path: "big.bin")).id
 
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -125,7 +125,7 @@ import Testing
             "Grüße/Ärger.txt": Data("ä".utf8),
             "leer.txt": Data(),
         ])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let file = try #require(archive.index.lookup(path: "Grüße/Ärger.txt"))
         #expect(try archive.contents(of: file.id) == Data("ä".utf8))
         // zerlegte Schreibweise (wie vom Finder) findet denselben Eintrag
@@ -140,7 +140,7 @@ import Testing
         // -y: Links als Links speichern statt ihnen zu folgen
         let zip = try makeZip("links.zip", flags: ["-r", "-y"],
                               files: ["ziel.txt": Data("z".utf8)], symlinks: ["link": "ziel.txt"])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let link = try #require(archive.index.lookup(path: "link"))
         #expect(link.kind == .symlink)
         #expect(link.symlinkTarget == "ziel.txt")
@@ -153,7 +153,7 @@ import Testing
             "/absolut.txt": "ok",
             "./normal.txt": "ok",
         ])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let names = archive.index.children(of: ArchiveIndex.rootID).map(\.name)
         #expect(names == ["absolut.txt", "normal.txt"])
     }
@@ -167,7 +167,7 @@ import Testing
             with zipfile.ZipFile(\(pyString(zip.path)), "a") as z:
                 z.writestr("d.txt", "neu")
             """], in: dir)
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         #expect(archive.index.children(of: ArchiveIndex.rootID).count == 1)
         let entry = try #require(archive.index.lookup(path: "d.txt"))
         #expect(try archive.contents(of: entry.id) == Data("neu".utf8))
@@ -176,12 +176,12 @@ import Testing
     @Test func rejectsNonZipFiles() throws {
         let file = dir.appendingPathComponent("kein.zip")
         try Data("das ist kein zip".utf8).write(to: file)
-        #expect(throws: ArchiveError.self) { try ZipArchive(url: file) }
+        #expect(throws: ArchiveError.self) { try Archive(url: file) }
     }
 
     @Test func closeRemovesCache() throws {
         let zip = try makeZip("cache.zip", files: ["f.txt": Data("cache".utf8)])
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         let id = try #require(archive.index.lookup(path: "f.txt")).id
         _ = try archive.contents(of: id)
         archive.close()

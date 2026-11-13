@@ -1,6 +1,6 @@
 # Zippy
 
-Öffnet ZIP-Archive als Volumes im Finder, wie eine .dmg. Ziel: gratis im Mac App Store.
+Öffnet ZIP- und TAR-Archive als Volumes im Finder, wie eine .dmg. Ziel: gratis im Mac App Store.
 
 ## Projekt erzeugen
 
@@ -44,9 +44,9 @@ bei roh angehängten Images nicht nach: dann `FSMediaTypes` in `project.yml` anp
 - Kostenloses Personal Team (Apple-ID in Xcode) reicht nicht: "Personal development teams ...
   do not support the FSKit Module capability." → bezahlter Apple-Developer-Account nötig.
 
-## ArchiveCore (ZIP-Kern)
+## ArchiveCore (Archiv-Kern)
 
-Swift-Package mit libarchive: liest das ZIP-Inhaltsverzeichnis in einen Ordnerbaum
+Swift-Package mit libarchive: liest das Inhaltsverzeichnis (ZIP, TAR) in einen Ordnerbaum
 und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cache entpackt).
 
     ./scripts/build-libarchive.sh          # einmalig: libarchive bauen (Prüfsumme wird geprüft)
@@ -54,7 +54,22 @@ und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cac
     swift run archivetool ls  datei.zip    # Inhalt anzeigen
     swift run archivetool cat datei.zip pfad/im/zip
 
-Vorerst nicht unterstützt: verschlüsselte ZIPs, LZMA/XZ-komprimierte Einträge.
+Vorerst nicht unterstützt: LZMA/XZ-komprimierte Einträge (libarchive ist ohne liblzma gebaut).
+
+### TAR
+
+`.tar`, `.tgz`/`.tar.gz`, `.tbz`/`.tar.bz2` und `.tar.Z`. Das Format erkennt libarchive
+am Inhalt (`Archive.format`), nicht an der Endung. Volume-Name ohne `.tar`, Symbol `tgz.icns`.
+
+- Hardlinks im TAR zeigen auf die Daten ihres Ziels und bleiben beim Speichern Hardlinks.
+  Wird eine der Dateien geändert, sind es danach zwei getrennte Dateien.
+- Geräte, FIFOs und Sockets aus dem TAR werden ausgelassen.
+- Ein TAR hat kein Inhaltsverzeichnis: Öffnen liest es einmal ganz, und jede Datei wird
+  beim ersten Zugriff von vorne bis zu ihr entpackt. Bei großen `.tar.gz` mit vielen
+  Dateien ist das spürbar langsamer als bei ZIP.
+- `.tar.gz` und `.tar.bz2` meldet macOS nur als gzip- bzw. bzip2-Datei. Zippy ist dafür
+  registriert; steckt kein TAR darin, kommt „Archiv lässt sich nicht öffnen“.
+- `.tar.xz` geht noch nicht (fehlt liblzma, wie bei 7z).
 
 ## Zippy mit FUSE-T (aktuelle Variante)
 
@@ -86,7 +101,7 @@ austauschbaren Umsetzungen; welche, entscheidet allein das Target:
 
 | Target | Ordner | Technik | Voraussetzung |
 |---|---|---|---|
-| `Zippy` | `Zippy/FUSE` | FUSE-T (Standard) oder macFUSE, ein Hilfsprozess pro Volume | FUSE-T installiert |
+| `Zippy` | `Zippy/FUSE` | FUSE-T über FSKit (ab macOS 26) oder NFS, wahlweise macFUSE; ein Hilfsprozess pro Volume | FUSE-T installiert |
 | `Zippy-FSKit` | `Zippy/FSKit` | eigene FSKit-Erweiterung `ZippyFS`, Sandbox, App-Store-tauglich | bezahlter Developer-Account |
 
 Beide lesen ZIPs über `ArchiveCore`. Die FSKit-Variante hängt das ZIP als Zippy-Image an
@@ -101,7 +116,41 @@ ad hoc signierte Erweiterung. Mit Team-ID in `project.yml` sollte der Rest laufe
 Backend der FUSE-Variante einstellen (nicht `defaults write dev.zippy.Zippy …`: ein alter
 Sandbox-Container des ersten Prototyps lenkt das sonst um):
 
-    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse   # Standard: FUSE-T
+    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t         # FUSE-T über NFS
+    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t-fskit   # FUSE-T über FSKit
+    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse        # macFUSE (FSKit)
+    defaults delete ~/Library/Preferences/dev.zippy.Zippy.plist Backend               # automatisch
+
+### FUSE-T über FSKit (Standard ab macOS 26; geprüft mit FUSE-T 1.2.9, macOS 27.2)
+
+Ab macOS 26 kann FUSE-T statt NFS FSKit nutzen (`-o backend=fskit`). Zippy nimmt das
+automatisch, wenn `/Applications/fuse-t.app` (FSKit-Modul `fuset`) da ist. Der Installer
+legt sie nur an, wenn er schon unter macOS 26+ läuft; danach in den Systemeinstellungen
+unter Dateisystemerweiterungen einschalten. Fehlt sie, scheitert `mount -t fuset` mit Exit 72.
+
+- **Mountpunkt `/Volumes/Zippy/<Name>`:** Nur unter /Volumes zeigt der Finder FSKit-Volumes
+  in der Seitenleiste, auf dem Schreibtisch und mit Auswerfen-Knopf (außerhalb, etwa in
+  /tmp, fehlt alles drei). Dort darf nur root Ordner anlegen, und macOS räumt /Volumes beim
+  Start auf. Darum richtet Zippy beim ersten Mal mit Admin-Passwort den LaunchDaemon
+  `dev.zippy.volumes-folder` ein (`Zippy/FUSE/VolumesFolder.swift`), der `/Volumes/Zippy`
+  bei jedem Start anlegt (Modus 1777 wie /tmp). Abgelehnt: NFS, ohne erneute Frage
+  (`defaults delete ~/Library/Preferences/dev.zippy.Zippy.plist VolumesFolderDeclined`).
+- **Rückfall:** Scheitert der FSKit-Mount (meist: Erweiterung aus), mountet Zippy über NFS.
+  Vorher prüfen geht nicht, `FSClient` zeigt fremde FSKit-Module nicht an. Bis FUSE-T
+  aufgibt, vergehen gut 20 Sekunden.
+- **Volume-Symbol:** FSKit reicht erweiterte Attribute nicht durch, der Kernel legt sie als
+  AppleDouble (`._name`) ins Volume. Zippy legt darum `._.` mit dem Flag „eigenes Symbol“
+  in den Wurzelordner, im selben 4096-Byte-Format, das macOS schreibt (kürzere Varianten
+  ignoriert der Kernel). Am Wurzelordner lassen sich keine Attribute setzen.
+- Mehrere Volumes gleichzeitig, Lesen, Bearbeiten, `fsync`, `ftruncate`, atomares Speichern
+  und Auswerfen im Finder gehen. Attribute an Dateien landen als `._`-Dateien und werden
+  nicht ins Archiv gespeichert.
+- Die Seitenleiste zeigt seit macOS 11 nur einfarbige Standardsymbole, auch für .dmg mit
+  eigenem Symbol. Das eigene Symbol wirkt auf dem Schreibtisch und im Fenster.
+- Beim Doppelklick zeigt der Finder kurz das alte Ordnersymbol aus `CoreTypes.bundle`
+  (Sequoia-Stil), bei .dmg mit eigenem Symbol nur einen Augenblick. Zippy liefert kein
+  Ordnersymbol, und die Symboldatei ist in rund 1 ms gelesen; vermutlich der Weg des
+  Finders für Volumes ohne Gerät dahinter.
 
 ### Warum FUSE-T Standard ist und nicht macFUSE (Stand macFUSE 5.2, macOS 15.8)
 
@@ -145,8 +194,8 @@ Argument erzeugt sie statt des Z:
 
 ![App-Icon](docs/app-icon.png)
 
-Eingebunden ist vorerst nur `zip.icns` (Zippy kann bisher nur ZIP). Der Finder zeigt es,
-wenn Zippy die Standard-App für ZIP ist.
+Eingebunden sind `zip.icns` und `tgz.icns` (für alle TAR-Varianten). Der Finder zeigt sie,
+wenn Zippy die Standard-App für den Typ ist.
 
 ## Passwortgeschützte ZIPs
 
@@ -166,18 +215,19 @@ CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
 
 ## Bearbeiten
 
-In der FUSE-Variante sind gemountete ZIPs beschreibbar: Dateien per Drag & Drop
+In der FUSE-Variante sind gemountete ZIPs und TARs beschreibbar: Dateien per Drag & Drop
 hinzufügen, löschen, umbenennen, verschieben, Ordner anlegen und Dateien ändern.
 
 - Änderungen sammelt `EditableArchive` (ArchiveCore). Neue und geänderte Dateien liegen
   in einem Arbeitsordner, Löschen und Umbenennen ändern nur den Baum im Speicher.
-- Gespeichert wird erst beim Auswerfen: Der Hilfsprozess schreibt ein neues ZIP neben
+- Gespeichert wird erst beim Auswerfen: Der Hilfsprozess schreibt ein neues Archiv neben
   das Original und ersetzt es dann. Nur Ansehen schreibt nichts.
 - Wurde das Original währenddessen von außen geändert, bleibt es stehen und die
-  Änderungen landen in „<Name> (bearbeitet).zip“.
+  Änderungen landen in „<Name> (bearbeitet).zip“ (bzw. `.tar.gz` usw.).
 - `.DS_Store`, `._*`, `.TemporaryItems` usw. sind im Volume sichtbar, zählen aber nicht
   als Änderung und kommen nicht ins ZIP. Erweiterte Attribute leben nur im Speicher.
-- Beim Speichern wird alles neu komprimiert (Deflate), Namen landen als UTF-8 in NFC.
+- Gespeichert wird im Format des Originals. ZIP: alles neu komprimiert (Deflate). TAR: pax,
+  mit derselben Kompression, Besitzer ist der aktuelle Benutzer. Namen als UTF-8 in NFC.
   Verschlüsselte Archive bleiben verschlüsselt, mit demselben Passwort, aber immer AES-256.
 - Nur lesbar bleibt ein ZIP, wenn Datei oder Ordner nicht beschreibbar sind oder
   verschlüsselte Dateien ohne Passwort nicht umkopiert werden können.

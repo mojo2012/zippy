@@ -1,12 +1,12 @@
 import CArchive
 import Foundation
 
-/// Bearbeitbare Sicht auf ein ``ZipArchive``.
+/// Bearbeitbare Sicht auf ein ``Archive`` (ZIP oder TAR).
 ///
 /// Das Original bleibt bis zum Speichern unangetastet. Neue und geänderte Dateien
 /// liegen in einem Arbeitsordner, Löschen und Umbenennen ändern nur den Baum im
-/// Speicher. ``save(to:)`` schreibt daraus ein neues ZIP, ``saveReplacing(_:ifUnchangedSince:)``
-/// ersetzt damit das Original.
+/// Speicher. ``save(to:)`` schreibt daraus ein neues Archiv im selben Format,
+/// ``saveReplacing(_:ifUnchangedSince:)`` ersetzt damit das Original.
 ///
 /// Pfade sind relativ zum Wurzelordner (`"ordner/datei.txt"`, ein führendes `/` ist
 /// erlaubt). Fehler sind `POSIXError`, damit das Dateisystem sie direkt weitergeben kann.
@@ -37,13 +37,13 @@ public final class EditableArchive: @unchecked Sendable {
 
     fileprivate enum Content: Sendable, Equatable {
         case none                 // Ordner, Link
-        case original(UInt64)     // Eintrag im ZipArchive
+        case original(UInt64)     // Eintrag im Archive
         case staged               // Datei im Arbeitsordner
     }
 
     public static let rootID = ArchiveIndex.rootID
 
-    public let archive: ZipArchive
+    public let archive: Archive
     /// Nur lesbar, z. B. wenn verschlüsselte Dateien ohne Passwort nicht umkopiert werden können.
     public let isReadOnly: Bool
 
@@ -56,7 +56,7 @@ public final class EditableArchive: @unchecked Sendable {
     private var attributes: [UInt64: [String: Data]] = [:]
     private let workDirectory: URL
 
-    public init(archive: ZipArchive, readOnly: Bool = false) {
+    public init(archive: Archive, readOnly: Bool = false) {
         self.archive = archive
         self.isReadOnly = readOnly || (archive.needsPassword && archive.password == nil)
         workDirectory = FileManager.default.temporaryDirectory
@@ -122,7 +122,7 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Statt `ZipArchive.contents(of:)`: auch für neue und geänderte Dateien.
+    /// Statt `Archive.contents(of:)`: auch für neue und geänderte Dateien.
     public func contents(of id: UInt64) throws -> Data {
         guard let node = node(id) else { throw POSIXError(.ENOENT) }
         return try read(id, offset: 0, length: Int(node.size))
@@ -349,9 +349,14 @@ public final class EditableArchive: @unchecked Sendable {
     }
 
     /// "<Name> (<suffix>).zip", "<Name> (<suffix> 2).zip" … – der erste freie Name.
+    /// Doppelte Endungen wie ".tar.gz" bleiben zusammen.
     public static func unusedURL(like url: URL, suffix: String) -> URL {
-        let base = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension.isEmpty ? "" : "." + url.pathExtension
+        var base = url.deletingPathExtension().lastPathComponent
+        var ext = url.pathExtension.isEmpty ? "" : "." + url.pathExtension
+        if (base as NSString).pathExtension.lowercased() == "tar" {
+            base = (base as NSString).deletingPathExtension
+            ext = ".tar" + ext
+        }
         var number = 1
         while true {
             let name = number == 1 ? "\(base) (\(suffix))\(ext)" : "\(base) (\(suffix) \(number))\(ext)"
@@ -361,29 +366,48 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Schreibt den aktuellen Stand als neues ZIP nach `destination`.
+    /// Schreibt den aktuellen Stand im Format des Originals nach `destination`:
+    /// ZIP bleibt ZIP, TAR bleibt TAR mit derselben Kompression.
     ///
     /// Alles wird neu komprimiert (libarchive kann komprimierte Daten nicht direkt
     /// übernehmen). Unveränderte Dateien werden dafür in Archivreihenfolge gelesen.
-    /// War das Archiv verschlüsselt, wird mit demselben Passwort per AES-256 verschlüsselt.
+    /// War ein ZIP verschlüsselt, wird mit demselben Passwort per AES-256 verschlüsselt.
     public func save(to destination: URL) throws {
         try lock.withLock {
             _ = utf8Locale
             guard let writer = archive_write_new() else { throw ArchiveError.writeFailed("libarchive") }
             defer { archive_write_free(writer) }
-            archive_write_set_format_zip(writer)
-            if archive.needsPassword, let password = archive.password {
-                guard archive_write_set_options(writer, "zip:encryption=aes256") == ARCHIVE_OK,
-                      archive_write_set_passphrase(writer, password.precomposedStringWithCanonicalMapping) == ARCHIVE_OK
-                else { throw ArchiveError.writeFailed(ZipArchive.message(writer)) }
+            var status: Int32
+            switch archive.format {
+            case .zip:
+                status = archive_write_set_format_zip(writer)
+                if status == ARCHIVE_OK, archive.needsPassword, let password = archive.password {
+                    status = archive_write_set_options(writer, "zip:encryption=aes256")
+                    if status == ARCHIVE_OK {
+                        status = archive_write_set_passphrase(writer, password.precomposedStringWithCanonicalMapping)
+                    }
+                }
+            case .tar(let compression):
+                // pax: lange Namen, UTF-8, Nanosekunden; ohne pax-Erweiterungen, wo nicht nötig
+                status = archive_write_set_format_pax_restricted(writer)
+                if status == ARCHIVE_OK {
+                    status = switch compression {
+                    case .none: ARCHIVE_OK
+                    case .gzip: archive_write_add_filter_gzip(writer)
+                    case .bzip2: archive_write_add_filter_bzip2(writer)
+                    case .compress: archive_write_add_filter_compress(writer)
+                    }
+                }
             }
+            guard status == ARCHIVE_OK else { throw ArchiveError.writeFailed(Archive.message(writer)) }
             try? FileManager.default.removeItem(at: destination)
             guard archive_write_open_filename(writer, destination.path) == ARCHIVE_OK else {
-                throw ArchiveError.writeFailed(ZipArchive.message(writer))
+                throw ArchiveError.writeFailed(Archive.message(writer))
             }
 
             // Ordner und Links sofort, Dateien danach (Originale in Archivreihenfolge)
-            var originals: [Int: (node: Node, path: String)] = [:]
+            // Mehrere Knoten pro Position: Hardlinks aus einem TAR
+            var originals: [Int: [(node: Node, path: String)]] = [:]
             var staged: [(node: Node, path: String)] = []
             for (node, path) in tree() {
                 switch node.kind {
@@ -392,7 +416,7 @@ public final class EditableArchive: @unchecked Sendable {
                 case .file:
                     if case .original(let entryID) = node.content,
                        let position = archive.index.entry(entryID)?.archiveIndex {
-                        originals[position] = (node, path)
+                        originals[position, default: []].append((node, path))
                     } else {
                         staged.append((node, path))
                     }
@@ -412,13 +436,13 @@ public final class EditableArchive: @unchecked Sendable {
                 }
             }
             guard archive_write_close(writer) == ARCHIVE_OK else {
-                throw ArchiveError.writeFailed(ZipArchive.message(writer))
+                throw ArchiveError.writeFailed(Archive.message(writer))
             }
         }
     }
 
     /// Liest das Original einmal von vorne und übernimmt die noch gültigen Dateien.
-    private func copyOriginals(_ originals: [Int: (node: Node, path: String)], to writer: OpaquePointer) throws {
+    private func copyOriginals(_ originals: [Int: [(node: Node, path: String)]], to writer: OpaquePointer) throws {
         let reader = try ArchiveReader(source: archive.source, password: archive.password)
         defer { reader.close() }
         let last = originals.keys.max()!
@@ -427,9 +451,9 @@ public final class EditableArchive: @unchecked Sendable {
         for position in 0...last {
             let status = archive_read_next_header(reader.archive, &header)
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN else {
-                throw ArchiveError.readFailed(ZipArchive.message(reader.archive))
+                throw ArchiveError.readFailed(Archive.message(reader.archive))
             }
-            guard let (node, path) = originals[position] else {
+            guard let targets = originals[position], let (node, path) = targets.first else {
                 archive_read_data_skip(reader.archive)
                 continue
             }
@@ -437,13 +461,18 @@ public final class EditableArchive: @unchecked Sendable {
             while true {
                 let count = buffer.withUnsafeMutableBytes { archive_read_data(reader.archive, $0.baseAddress, $0.count) }
                 if count == 0 { break }
-                guard count > 0 else { throw ArchiveError.readFailed(ZipArchive.message(reader.archive)) }
+                guard count > 0 else { throw ArchiveError.readFailed(Archive.message(reader.archive)) }
                 try writeData(buffer, count: count, to: writer)
+            }
+            // Weitere Namen derselben Daten bleiben Hardlinks (nur TAR kennt das)
+            for (other, otherPath) in targets.dropFirst() {
+                try writeHeader(other, path: otherPath, hardlinkTo: path, to: writer)
             }
         }
     }
 
-    private func writeHeader(_ node: Node, path: String, to writer: OpaquePointer) throws {
+    private func writeHeader(_ node: Node, path: String, hardlinkTo linkTarget: String? = nil,
+                             to writer: OpaquePointer) throws {
         guard let entry = archive_entry_new() else { throw ArchiveError.writeFailed("libarchive") }
         defer { archive_entry_free(entry) }
         archive_entry_copy_pathname(entry, path.precomposedStringWithCanonicalMapping)
@@ -454,21 +483,29 @@ public final class EditableArchive: @unchecked Sendable {
             archive_entry_copy_symlink(entry, (node.symlinkTarget ?? "").precomposedStringWithCanonicalMapping)
         case .file:
             archive_entry_set_filetype(entry, 0o100000)
-            archive_entry_set_size(entry, Int64(node.size))
+            if let linkTarget {
+                archive_entry_copy_hardlink(entry, linkTarget.precomposedStringWithCanonicalMapping)
+                archive_entry_set_size(entry, 0)
+            } else {
+                archive_entry_set_size(entry, Int64(node.size))
+            }
         }
         archive_entry_set_perm(entry, mode_t(node.permissions))
+        // TAR speichert Besitzer; sonst gehört beim Entpacken als root alles root
+        archive_entry_set_uid(entry, la_int64_t(getuid()))
+        archive_entry_set_gid(entry, la_int64_t(getgid()))
         let seconds = node.modificationDate.timeIntervalSince1970.rounded(.down)
         archive_entry_set_mtime(entry, time_t(seconds),
                                 Int((node.modificationDate.timeIntervalSince1970 - seconds) * 1e9))
         let status = archive_write_header(writer, entry)
         guard status == ARCHIVE_OK || status == ARCHIVE_WARN else {
-            throw ArchiveError.writeFailed(ZipArchive.message(writer))
+            throw ArchiveError.writeFailed(Archive.message(writer))
         }
     }
 
     private func writeData(_ buffer: [UInt8], count: Int, to writer: OpaquePointer) throws {
         let written = buffer.withUnsafeBytes { archive_write_data(writer, $0.baseAddress, count) }
-        guard written == count else { throw ArchiveError.writeFailed(ZipArchive.message(writer)) }
+        guard written == count else { throw ArchiveError.writeFailed(Archive.message(writer)) }
     }
 
     /// Alle zu speichernden Einträge mit Pfad, Eltern vor Kindern, ohne Systemdateien.

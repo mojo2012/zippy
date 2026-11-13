@@ -28,7 +28,7 @@ final class FSKitMounter: ArchiveMounting {
     func mountedVolume(for archive: URL) -> URL? { nil }
 
     func mount(_ archive: URL, password: String?) async throws -> URL {
-        let name = archive.deletingPathExtension().lastPathComponent
+        let name = Archive.volumeName(for: archive)
 
         // Passwort an die Erweiterung: über den gemeinsamen Schlüsselbund, unter einer
         // zufälligen ID, die im Image-Trailer steht. Die Erweiterung löscht den Eintrag.

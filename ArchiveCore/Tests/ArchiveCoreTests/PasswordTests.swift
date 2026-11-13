@@ -41,7 +41,7 @@ import Testing
     @Test(arguments: Method.allCases)
     func readsWithCorrectPassword(_ method: Method) throws {
         let zip = try makeZip(method, password: "Pa55wört")
-        let archive = try ZipArchive(url: zip, password: "Pa55wört")
+        let archive = try Archive(url: zip, password: "Pa55wört")
         #expect(archive.needsPassword)
         try archive.checkPassword()
         let entry = try #require(archive.index.lookup(path: "geheim.txt"))
@@ -51,7 +51,7 @@ import Testing
     @Test(arguments: Method.allCases)
     func listsWithoutPasswordButRefusesToRead(_ method: Method) throws {
         let zip = try makeZip(method, password: "abc")
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         #expect(archive.needsPassword)
         let entry = try #require(archive.index.lookup(path: "geheim.txt"))
         #expect(entry.isEncrypted)
@@ -62,7 +62,7 @@ import Testing
     @Test(arguments: Method.allCases)
     func detectsWrongPassword(_ method: Method) throws {
         let zip = try makeZip(method, password: "richtig")
-        let archive = try ZipArchive(url: zip, password: "falsch")
+        let archive = try Archive(url: zip, password: "falsch")
         #expect(throws: ArchiveError.wrongPassword) { try archive.checkPassword() }
     }
 
@@ -84,7 +84,7 @@ import Testing
         process.currentDirectoryURL = dir.appendingPathComponent("src")
         try process.run()
         process.waitUntilExit()
-        let archive = try ZipArchive(url: zip)
+        let archive = try Archive(url: zip)
         #expect(!archive.needsPassword)
         try archive.checkPassword()   // nichts zu prüfen
     }

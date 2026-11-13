@@ -100,12 +100,12 @@ public enum ZippyImage {
     public static func open(blockSize deviceBlockSize: Int, blockCount: UInt64, date: Date = Date(),
                             password: String? = nil,
                             readBlocks: @escaping @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int)
-        throws -> (archive: ZipArchive, info: Info) {
+        throws -> (archive: Archive, info: Info) {
         guard let info = try readInfo(blockSize: deviceBlockSize, blockCount: blockCount, readBlocks: readBlocks) else {
             throw ArchiveError.openFailed("kein Zippy-Image")
         }
         let source = BlockSource(size: info.zipLength, blockSize: deviceBlockSize, readBlocks: readBlocks)
-        return (try ZipArchive(source: source, date: date, password: password), info)
+        return (try Archive(source: source, date: date, password: password), info)
     }
 
     /// Liest nur den Trailer, z. B. zum Erkennen (Probe) eines Geräts.

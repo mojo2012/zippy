@@ -11,6 +11,7 @@
 		09C916DF088515B07AC6A4E3 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
 		0A16162B93DBC81920BE9CCF /* ZippyFS.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31686E9FCB4A67DD9BE6149 /* Variant.swift */; };
+		101C673A54B25AFD5B17EC76 /* VolumesFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3880A4081FBF7CBC0C9BABF6 /* VolumesFolder.swift */; };
 		14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */; };
 		2419D2B49C0827503353AB69 /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
 		31D89944635A65196A46D914 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
@@ -75,6 +76,7 @@
 		1BEA0A6FDA039F3153485F24 /* tgz.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = tgz.icns; sourceTree = "<group>"; };
 		2FE85C9CF2C3F0A11CB22FB9 /* Notifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifier.swift; sourceTree = "<group>"; };
 		36A5E9E2EF44670094F44A3D /* ZippyFS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = ZippyFS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3880A4081FBF7CBC0C9BABF6 /* VolumesFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumesFolder.swift; sourceTree = "<group>"; };
 		3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		406727D45866C92CD7B3725C /* FSKitMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSKitMounter.swift; sourceTree = "<group>"; };
 		750FEDF2057CF37ACBB24ECA /* ZipFileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipFileSystem.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 				BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */,
 				E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */,
 				D31686E9FCB4A67DD9BE6149 /* Variant.swift */,
+				3880A4081FBF7CBC0C9BABF6 /* VolumesFolder.swift */,
 			);
 			path = FUSE;
 			sourceTree = "<group>";
@@ -396,6 +399,7 @@
 				14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */,
 				BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */,
 				0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */,
+				101C673A54B25AFD5B17EC76 /* VolumesFolder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -8,14 +8,14 @@ final class ZipItem: FSItem {
     init(entry: ArchiveEntry) { self.entry = entry }
 }
 
-/// Nur lesbares Volume über einem ``ZipArchive``. Alles, was schreibt, antwortet mit EROFS.
+/// Nur lesbares Volume über einem ``Archive``. Alles, was schreibt, antwortet mit EROFS.
 final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperations, @unchecked Sendable {
 
-    let archive: ZipArchive
+    let archive: Archive
     private let lock = NSLock()
     private var items: [UInt64: ZipItem] = [:]
 
-    init(archive: ZipArchive, name: String) {
+    init(archive: Archive, name: String) {
         self.archive = archive
         super.init(volumeID: FSVolume.Identifier(), volumeName: FSFileName(string: name))
     }
