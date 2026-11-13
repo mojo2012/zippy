@@ -30,7 +30,7 @@ targets:
   Zippy:
     type: application
     platform: macOS
-    sources: [Zippy/Shared, Zippy/FUSE]
+    sources: [Zippy/Shared, Zippy/FUSE, Zippy/Resources]
     info:
       path: Zippy/Info.plist
       properties: &appInfo
@@ -41,6 +41,7 @@ targets:
         CFBundleDocumentTypes:
           - CFBundleTypeName: ZIP-Archiv
             CFBundleTypeRole: Viewer
+            CFBundleTypeIconFile: zip    # Zippy/Resources/Icons; rar/7z/tgz liegen bereit
             LSHandlerRank: Alternate   # Standard-App wird man über „Öffnen mit → Alle ändern“
             LSItemContentTypes: [com.pkware.zip-archive, public.zip-archive]
     entitlements:
@@ -61,7 +62,7 @@ targets:
   Zippy-FSKit:
     type: application
     platform: macOS
-    sources: [Zippy/Shared, Zippy/FSKit]
+    sources: [Zippy/Shared, Zippy/FSKit, Zippy/Resources]
     info:
       path: Zippy/Info-FSKit.plist
       properties: *appInfo

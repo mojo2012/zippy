@@ -9,6 +9,8 @@
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeIconFile</key>
+			<string>zip</string>
 			<key>CFBundleTypeName</key>
 			<string>ZIP-Archiv</string>
 			<key>CFBundleTypeRole</key>

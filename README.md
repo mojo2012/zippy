@@ -116,3 +116,15 @@ macFUSE mountet über FSKit (ohne Kernel-Erweiterung) und die Volumes gelten als
 FUSE-T dagegen: stabil, mehrere Volumes, Auswerfen im Finder; Nachteil: alle Volumes stehen
 in der Seitenleiste unter dem Server „fuse-t“ und macOS fragt einmal nach „Netzwerk-Volumes“.
 Das .dmg-Verhalten (eigener Eintrag pro ZIP) liefert realistisch nur die FSKit-Variante.
+
+## Icons
+
+Dokument-Icons pro Archivtyp im Stil der macOS-Dokumentsymbole, farbcodiert
+(ZIP blau, RAR violett, 7Z grün, TGZ orange). Selbst gezeichnet mit CoreGraphics:
+
+    swift scripts/make-icons.swift Zippy/Resources/Icons docs/icons.png
+
+![Icons](docs/icons.png)
+
+Eingebunden ist vorerst nur `zip.icns` (Zippy kann bisher nur ZIP). Der Finder zeigt es,
+wenn Zippy die Standard-App für ZIP ist.

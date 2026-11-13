@@ -11,20 +11,28 @@
 		09C916DF088515B07AC6A4E3 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
 		0A16162B93DBC81920BE9CCF /* ZippyFS.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31686E9FCB4A67DD9BE6149 /* Variant.swift */; };
+		2419D2B49C0827503353AB69 /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
+		31D89944635A65196A46D914 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
 		33DE76421CF7D56BF62852E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
 		36B311D4E1AE09B29EE4EBB2 /* FuseHelperMounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */; };
 		47D0BF9335E35B560014FAE8 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E784A9F039C544F1A1FF5E /* Main.swift */; };
+		4B14729041DED063C203F92E /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
+		607A073DFDB9FFA8B3130587 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
 		6F862DC0A58B23E950476323 /* ZipFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750FEDF2057CF37ACBB24ECA /* ZipFileSystem.swift */; };
 		7278BFB7B11497996F60EC9E /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18063B0E71113506684EE860 /* Variant.swift */; };
 		7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044D18ABD9F753D382FF376C /* ZipVolume.swift */; };
 		8932D3E3E15F6B839F396E85 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E784A9F039C544F1A1FF5E /* Main.swift */; };
 		8E011E8C10FB05814EEB6E42 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
+		90488ED60E7F25ADABA99943 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
 		918AF1533A6CCC7DF862D684 /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = D79D2B949130B681C49726BF /* ArchiveCore */; };
 		94C9B9AE17B66E3762B5C076 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
 		B5F75399D2483B332BD79A7C /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D7C4CDB2E89B6CB5FC13112 /* ArchiveCore */; };
 		BC3E193ACB466B1638486A12 /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0EC1BCD765D69DE07906B31F /* ArchiveCore */; };
 		BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */; };
+		C1CB94650320AB08A2D840FA /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
+		D4632882F8A6C7FDCE7E72B4 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
 		E16FB8CF5AD481D39F2F185D /* FuseMount in Frameworks */ = {isa = PBXBuildFile; productRef = 784498770D3D70474D8F94EF /* FuseMount */; };
+		EFAC3F2F7F81A8E13811F70D /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
 		F94E767D9E4BD1E8F54BE2B9 /* ZippyFSExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC03D1E6501C02A15AC5150 /* ZippyFSExtension.swift */; };
 /* End PBXBuildFile section */
 
@@ -55,6 +63,7 @@
 /* Begin PBXFileReference section */
 		044D18ABD9F753D382FF376C /* ZipVolume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipVolume.swift; sourceTree = "<group>"; };
 		18063B0E71113506684EE860 /* Variant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Variant.swift; sourceTree = "<group>"; };
+		1BEA0A6FDA039F3153485F24 /* tgz.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = tgz.icns; sourceTree = "<group>"; };
 		36A5E9E2EF44670094F44A3D /* ZippyFS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = ZippyFS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		406727D45866C92CD7B3725C /* FSKitMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSKitMounter.swift; sourceTree = "<group>"; };
@@ -63,13 +72,16 @@
 		7F5802F2FFB82E40CFCF8A7D /* ZippyFS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZippyFS.entitlements; sourceTree = "<group>"; };
 		8DC03D1E6501C02A15AC5150 /* ZippyFSExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZippyFSExtension.swift; sourceTree = "<group>"; };
 		B064CFCB0FC7D2B615C34366 /* Zippy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zippy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4AA0818094249125119ADC5 /* rar.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = rar.icns; sourceTree = "<group>"; };
 		BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuseHelperMounter.swift; sourceTree = "<group>"; };
 		C7E784A9F039C544F1A1FF5E /* Main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Main.swift; sourceTree = "<group>"; };
 		C8C7C76EE9CDDAD1732D8DAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA1F245B3259E3C293D9775C /* ArchiveCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArchiveCore; path = ArchiveCore; sourceTree = SOURCE_ROOT; };
+		CAB8DBA0A68999BB177599B4 /* 7z.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = 7z.icns; sourceTree = "<group>"; };
 		D31686E9FCB4A67DD9BE6149 /* Variant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Variant.swift; sourceTree = "<group>"; };
 		D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMounting.swift; sourceTree = "<group>"; };
 		E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServeCommand.swift; sourceTree = "<group>"; };
+		EC9C602B56C256B11937A04D /* zip.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = zip.icns; sourceTree = "<group>"; };
 		EDADC737217DEB4167EC063F /* Zippy-FSKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Zippy-FSKit.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -107,6 +119,7 @@
 			children = (
 				06512F8A17BC370A13BBC59F /* FSKit */,
 				44BB4BF3DF955946838EEF86 /* FUSE */,
+				655D95DCF5E556F7A93FC87A /* Resources */,
 				D25FEB5F89895DE0EAF52C6C /* Shared */,
 			);
 			path = Zippy;
@@ -119,6 +132,17 @@
 				18063B0E71113506684EE860 /* Variant.swift */,
 			);
 			path = FSKit;
+			sourceTree = "<group>";
+		};
+		0B0D3A77B0F581305D5BB8D0 /* Icons */ = {
+			isa = PBXGroup;
+			children = (
+				CAB8DBA0A68999BB177599B4 /* 7z.icns */,
+				B4AA0818094249125119ADC5 /* rar.icns */,
+				1BEA0A6FDA039F3153485F24 /* tgz.icns */,
+				EC9C602B56C256B11937A04D /* zip.icns */,
+			);
+			path = Icons;
 			sourceTree = "<group>";
 		};
 		383564B6AD2023F935C13B73 /* Products */ = {
@@ -139,6 +163,14 @@
 				D31686E9FCB4A67DD9BE6149 /* Variant.swift */,
 			);
 			path = FUSE;
+			sourceTree = "<group>";
+		};
+		655D95DCF5E556F7A93FC87A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0B0D3A77B0F581305D5BB8D0 /* Icons */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		7712BEDC6D761D1AD8EFF3B0 /* Packages */ = {
@@ -209,6 +241,7 @@
 			buildConfigurationList = A7FA474AD35D6D40CEFA6356 /* Build configuration list for PBXNativeTarget "Zippy-FSKit" */;
 			buildPhases = (
 				FE30611C6DFE38AC9DB2ED25 /* Sources */,
+				86FD6C204361E7BF5FDA9378 /* Resources */,
 				5A05317974F6AB363B574A75 /* Frameworks */,
 				869F4F1117D131DB2E5E2A44 /* Embed ExtensionKit Extensions */,
 			);
@@ -230,6 +263,7 @@
 			buildConfigurationList = 0909D7DC2A8789E5B1A0CAE3 /* Build configuration list for PBXNativeTarget "Zippy" */;
 			buildPhases = (
 				22936F8ED5EF29BE76387A60 /* Sources */,
+				3EC02470DB9A80E38E6132B5 /* Resources */,
 				F86F2258363ED7FE0D161EA4 /* Frameworks */,
 			);
 			buildRules = (
@@ -292,6 +326,31 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3EC02470DB9A80E38E6132B5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4632882F8A6C7FDCE7E72B4 /* 7z.icns in Resources */,
+				31D89944635A65196A46D914 /* rar.icns in Resources */,
+				2419D2B49C0827503353AB69 /* tgz.icns in Resources */,
+				EFAC3F2F7F81A8E13811F70D /* zip.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		86FD6C204361E7BF5FDA9378 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90488ED60E7F25ADABA99943 /* 7z.icns in Resources */,
+				607A073DFDB9FFA8B3130587 /* rar.icns in Resources */,
+				C1CB94650320AB08A2D840FA /* tgz.icns in Resources */,
+				4B14729041DED063C203F92E /* zip.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		00AE0F492B779EACED54A69E /* Sources */ = {
