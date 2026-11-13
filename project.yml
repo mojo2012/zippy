@@ -35,6 +35,7 @@ targets:
       path: Zippy/Info.plist
       properties: &appInfo
         CFBundleDisplayName: Zippy
+        CFBundleIconFile: AppIcon      # scripts/make-app-icon.swift
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true              # kein Dock-Symbol, kein Menü
         NSPrincipalClass: NSApplication
@@ -97,6 +98,7 @@ targets:
       path: ZippyFS/Info.plist
       properties:
         CFBundleDisplayName: Zippy
+        CFBundleIconFile: AppIcon      # scripts/make-app-icon.swift
         ZippyKeychainGroup: ""     # wie bei Zippy-FSKit
         EXAppExtensionAttributes:
           EXExtensionPointIdentifier: com.apple.fskit.fsmodule

@@ -126,6 +126,14 @@ Dokument-Icons pro Archivtyp im Stil der macOS-Dokumentsymbole, farbcodiert
 
 ![Icons](docs/icons.png)
 
+Das App-Icon (weißes Z mit Reißverschluss als Diagonale) entsteht genauso. Die
+Vorschau zeigt auch die verworfene Variante mit Schriftzug, `wort` als drittes
+Argument erzeugt sie statt des Z:
+
+    swift scripts/make-app-icon.swift Zippy/Resources/Icons/AppIcon.icns docs/app-icon.png
+
+![App-Icon](docs/app-icon.png)
+
 Eingebunden ist vorerst nur `zip.icns` (Zippy kann bisher nur ZIP). Der Finder zeigt es,
 wenn Zippy die Standard-App für ZIP ist.
 
