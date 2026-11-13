@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Ohne Datei gestartet (z. B. Doppelklick auf die App): kurz erklären, beenden.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             guard !receivedFiles else { return }
-            alert("Zippy öffnet ZIP-, TAR- und 7z-Archive als Volume.",
+            alert("Zippy öffnet ZIP-, TAR-, 7z- und RAR-Archive als Volume.",
                   info: "Doppelklicke ein Archiv oder wähle im Finder „Öffnen mit → Zippy“.")
             NSApp.terminate(nil)
         }

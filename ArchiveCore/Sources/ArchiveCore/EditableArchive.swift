@@ -58,7 +58,8 @@ public final class EditableArchive: @unchecked Sendable {
 
     public init(archive: Archive, readOnly: Bool = false) {
         self.archive = archive
-        self.isReadOnly = readOnly || (archive.needsPassword && archive.password == nil)
+        self.isReadOnly = readOnly || !archive.format.isWritable
+            || (archive.needsPassword && archive.password == nil)
         workDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-edit-\(UUID().uuidString)", isDirectory: true)
         for entry in archive.index.entries.values {
@@ -402,6 +403,8 @@ public final class EditableArchive: @unchecked Sendable {
             case .sevenZip:
                 status = archive_write_set_format_7zip(writer)
                 if status == ARCHIVE_OK { status = archive_write_set_options(writer, "7zip:compression=lzma2") }
+            case .rar:
+                throw ArchiveError.writeFailed("RAR-Archive lassen sich nicht schreiben")
             }
             guard status == ARCHIVE_OK else { throw ArchiveError.writeFailed(Archive.message(writer)) }
             try? FileManager.default.removeItem(at: destination)

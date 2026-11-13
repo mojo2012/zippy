@@ -85,6 +85,21 @@ Lesen und Speichern über libarchive, Symbol `7z.icns`. Gespeichert wird mit LZM
   auch das System-tar nicht. Zippy lehnt sie beim Öffnen mit einer Meldung ab. Die Tests
   dazu laufen nur, wenn `/opt/homebrew/bin/7zz` da ist.
 
+### RAR
+
+RAR 4 und 5, nur lesbar (libarchive kann RAR nicht schreiben); `EditableArchive` ist dann
+immer schreibgeschützt, das Volume wird mit `rdonly` gemountet. Symbol `rar.icns`.
+- Testarchive: Ohne RAR-Programm kommen sie aus libarchives Testsatz
+  (`ArchiveCore/Tests/ArchiveCoreTests/Fixtures`, BSD-Lizenz). Die Tests vergleichen jede
+  Datei und jeden Link mit dem, was das System-tar entpackt.
+- Verschlüsselte RAR (Daten oder Dateinamen) kann libarchive nur erkennen, nicht
+  entschlüsseln; Zippy lehnt sie ab wie verschlüsselte 7z.
+- Mehrteilige Archive (`.part1.rar`, `.r00`, `.7z.001`, `.z01` …) gehen nicht: Zippy liest
+  nur die eine Datei. Am Dateinamen erkannt, gibt es dafür eine verständliche Meldung.
+
+Links: FUSE-T liest über FSKit nur so viele Bytes des Link-Ziels, wie `st_size` angibt.
+Darum meldet `getattr` bei Links die Länge des Ziels (sonst zeigen sie ins Leere).
+
 ## Zippy mit FUSE-T (aktuelle Variante)
 
 Voraussetzung: FUSE-T (`brew install macos-fuse-t/cask/fuse-t`), kostenlos für

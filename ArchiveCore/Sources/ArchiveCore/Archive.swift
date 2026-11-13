@@ -28,6 +28,8 @@ public enum ArchiveFormat: Sendable, Equatable {
     case zip
     case tar(Compression)
     case sevenZip
+    /// RAR 4 und 5. Nur lesbar: RAR-Archive schreiben kann libarchive nicht.
+    case rar
 
     /// Kompression um ein TAR herum.
     public enum Compression: Sendable, Equatable {
@@ -40,11 +42,25 @@ public enum ArchiveFormat: Sendable, Equatable {
         case .zip: "zip"
         case .tar: "tgz"
         case .sevenZip: "7z"
+        case .rar: "rar"
+        }
+    }
+
+    /// Kann Zippy Änderungen in diesem Format speichern?
+    public var isWritable: Bool { self != .rar }
+
+    /// Für Meldungen: "ZIP", "TAR", "7z", "RAR".
+    public var displayName: String {
+        switch self {
+        case .zip: "ZIP"
+        case .tar: "TAR"
+        case .sevenZip: "7z"
+        case .rar: "RAR"
         }
     }
 }
 
-/// Ein geöffnetes Archiv (ZIP, TAR oder 7z): Index plus Lesezugriff auf Dateien.
+/// Ein geöffnetes Archiv (ZIP, TAR, 7z oder RAR): Index plus Lesezugriff auf Dateien.
 ///
 /// Lesen: Beim ersten Zugriff wird die Datei vollständig in einen Cache-Ordner
 /// entpackt, danach wird von dort gelesen. So sind beliebige Offsets möglich,
@@ -73,7 +89,19 @@ public final class Archive: @unchecked Sendable {
     public convenience init(url: URL, password: String? = nil) throws {
         let fileDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? Date()
-        try self.init(source: FileSource(url: url), date: fileDate, password: password)
+        do {
+            try self.init(source: FileSource(url: url), date: fileDate, password: password)
+        } catch ArchiveError.openFailed(let reason) where Self.isMultiPart(url) {
+            // libarchive liest hier nur diese eine Datei und meldet dann z. B.
+            // "Too small block encountered" – unverständlich für Menschen.
+            throw ArchiveError.openFailed("mehrteilige Archive werden noch nicht unterstützt (\(reason))")
+        }
+    }
+
+    /// Teil eines mehrteiligen Archivs? "x.part1.rar", "x.part01.rar", "x.r00", "x.7z.001", "x.zip.001", "x.z01".
+    static func isMultiPart(_ url: URL) -> Bool {
+        let name = url.lastPathComponent.lowercased()
+        return name.range(of: #"(\.part\d+\.rar|\.r\d\d|\.\d{3}|\.z\d\d)$"#, options: .regularExpression) != nil
     }
 
     /// Archiv aus einer beliebigen Quelle, z. B. einem Block-Gerät.
@@ -82,9 +110,9 @@ public final class Archive: @unchecked Sendable {
         self.source = source
         self.password = password
         (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date)
-        // libarchive kann verschlüsselte 7z-Daten nicht entschlüsseln
-        if format == .sevenZip, index.entries.values.contains(where: { $0.isEncrypted }) {
-            throw ArchiveError.openFailed(Self.encryptedUnsupported)
+        // Verschlüsselte 7z- und RAR-Daten erkennt libarchive, entschlüsseln kann es sie nicht
+        if format == .sevenZip || format == .rar, index.entries.values.contains(where: { $0.isEncrypted }) {
+            throw ArchiveError.openFailed(Self.encryptedUnsupported(format))
         }
         self.cacheDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-\(UUID().uuidString)", isDirectory: true)
@@ -205,7 +233,12 @@ public final class Archive: @unchecked Sendable {
     private static let formatMask: Int32 = 0xff0000
     private static let formatTar: Int32 = 0x30000
     private static let format7Zip: Int32 = 0xE0000
-    static let encryptedUnsupported = "verschlüsselte 7z-Archive werden noch nicht unterstützt"
+    private static let formatRar: Int32 = 0xD0000
+    private static let formatRar5: Int32 = 0x100000
+
+    static func encryptedUnsupported(_ format: ArchiveFormat) -> String {
+        "verschlüsselte \(format.displayName)-Archive werden noch nicht unterstützt"
+    }
 
     private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> (ArchiveIndex, ArchiveFormat) {
         let reader = try ArchiveReader(source: source)
@@ -220,10 +253,11 @@ public final class Archive: @unchecked Sendable {
             let status = archive_read_next_header(archive, &header)
             if status == ARCHIVE_EOF { break }
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
-                // z. B. 7z mit verschlüsselten Dateinamen: "The archive header is encrypted, …"
+                // Verschlüsselte Dateinamen, z. B. "The archive header is encrypted, …" (7z),
+                // "RAR encryption support unavailable." oder "Encryption is not supported" (RAR)
                 let reason = message(archive)
-                throw ArchiveError.openFailed(reason.localizedCaseInsensitiveContains("encrypted")
-                                              ? encryptedUnsupported : reason)
+                throw ArchiveError.openFailed(reason.localizedCaseInsensitiveContains("encrypt")
+                                              ? encryptedUnsupported(detectFormat(archive)) : reason)
             }
             if position == 0 { format = detectFormat(archive) }
             defer {
@@ -291,6 +325,8 @@ public final class Archive: @unchecked Sendable {
             }
         case format7Zip:
             return .sevenZip
+        case formatRar, formatRar5:
+            return .rar
         default:
             return .zip
         }
@@ -339,6 +375,8 @@ final class ArchiveReader {
         archive_read_support_filter_compress(archive)
         archive_read_support_filter_xz(archive)
         archive_read_support_format_7zip(archive)
+        archive_read_support_format_rar(archive)
+        archive_read_support_format_rar5(archive)
         if let password {
             for variant in Self.passwordVariants(password) {
                 variant.withUnsafeBufferPointer { _ = archive_read_add_passphrase(archive, $0.baseAddress) }

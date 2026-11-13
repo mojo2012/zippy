@@ -42,7 +42,7 @@ targets:
         CFBundleDocumentTypes:
           - CFBundleTypeName: ZIP-Archiv
             CFBundleTypeRole: Viewer
-            CFBundleTypeIconFile: zip    # Zippy/Resources/Icons; rar liegt bereit
+            CFBundleTypeIconFile: zip    # Zippy/Resources/Icons
             LSHandlerRank: Alternate   # Standard-App wird man über „Öffnen mit → Alle ändern“
             LSItemContentTypes: [com.pkware.zip-archive, public.zip-archive]
           - CFBundleTypeName: TAR-Archiv
@@ -60,6 +60,11 @@ targets:
             CFBundleTypeIconFile: 7z
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.7-zip.7-zip-archive]
+          - CFBundleTypeName: RAR-Archiv
+            CFBundleTypeRole: Viewer       # nur lesbar
+            CFBundleTypeIconFile: rar
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.rarlab.rar-archive]
     entitlements:
       path: Zippy/Zippy.entitlements
       properties:

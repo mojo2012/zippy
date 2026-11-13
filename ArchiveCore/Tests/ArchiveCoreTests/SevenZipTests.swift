@@ -93,7 +93,7 @@ import Testing
         let archive = dir.appendingPathComponent("enc-\(encryptedNames).7z")
         try run("/opt/homebrew/bin/7zz", ["a", "-bso0", "-pgeheim", "-mhe=\(encryptedNames ? "on" : "off")",
                                           archive.path, src.appendingPathComponent("geheim.txt").path])
-        #expect(throws: ArchiveError.openFailed(Archive.encryptedUnsupported)) {
+        #expect(throws: ArchiveError.openFailed(Archive.encryptedUnsupported(.sevenZip))) {
             try Archive(url: archive, password: "geheim")
         }
     }

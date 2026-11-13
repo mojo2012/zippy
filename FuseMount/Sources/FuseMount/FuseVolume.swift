@@ -292,9 +292,12 @@ private func fill(_ st: UnsafeMutablePointer<stat>, with node: EditableArchive.N
     st.pointee.st_nlink = node.isDirectory ? 2 : 1
     st.pointee.st_uid = volume.uid
     st.pointee.st_gid = volume.gid
-    st.pointee.st_size = off_t(node.size)
+    // Bei Links ist die Größe die Länge des Ziels: FUSE-T liest über FSKit nur so viele
+    // Bytes, mit 0 käme ein leeres Ziel an.
+    let size = node.kind == .symlink ? UInt64(node.symlinkTarget?.utf8.count ?? 0) : node.size
+    st.pointee.st_size = off_t(size)
     st.pointee.st_blksize = 4096
-    st.pointee.st_blocks = blkcnt_t((node.size + 511) / 512)
+    st.pointee.st_blocks = blkcnt_t((size + 511) / 512)
     st.pointee.st_ino = ino_t(node.id)
     let time = timespec(node.modificationDate)
     st.pointee.st_mtimespec = time

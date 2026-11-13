@@ -13,6 +13,7 @@ let package = Package(
         .binaryTarget(name: "CArchive", path: "Vendor/CArchive.xcframework"),
         .target(name: "ArchiveCore", dependencies: ["CArchive"]),
         .executableTarget(name: "archivetool", dependencies: ["ArchiveCore"]),
-        .testTarget(name: "ArchiveCoreTests", dependencies: ["ArchiveCore"]),
+        .testTarget(name: "ArchiveCoreTests", dependencies: ["ArchiveCore"],
+                    resources: [.copy("Fixtures")]),   // RAR-Testarchive aus libarchive
     ]
 )
