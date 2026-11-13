@@ -7,17 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		054FBFFC9828B6223EEC1029 /* ZippyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E2071CE3E4BD6622D5271F /* ZippyApp.swift */; };
+		0A16162B93DBC81920BE9CCF /* ZippyFS.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2C34E549E89DD36A47C68CB6 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15FA910CAC2BF7F964A3825 /* Main.swift */; };
+		34414E5CE4E966E87746395E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECDA4F5F1DC68E466ECF992 /* ContentView.swift */; };
+		5321D8485126C28E3DFCD771 /* ZippyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16D5DD377F65CBB1D318231C /* ZippyApp.swift */; };
 		6F862DC0A58B23E950476323 /* ZipFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750FEDF2057CF37ACBB24ECA /* ZipFileSystem.swift */; };
-		7781C04DA46A571F96E8FEDA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C3E173A8AFB65C4BEF0E91 /* ContentView.swift */; };
+		724A32AC837E32E145955552 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8768C14E26B3C3BB3200175 /* AppDelegate.swift */; };
 		7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044D18ABD9F753D382FF376C /* ZipVolume.swift */; };
-		836F289F941DC3B08C6550F9 /* ArchiveMounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171C7E6AAD8116A0B89A109 /* ArchiveMounter.swift */; };
+		B5F75399D2483B332BD79A7C /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D7C4CDB2E89B6CB5FC13112 /* ArchiveCore */; };
+		D66CC16357280DCE90D45208 /* ServeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C36ACFBAC826CC711F03E17 /* ServeCommand.swift */; };
+		E16FB8CF5AD481D39F2F185D /* FuseMount in Frameworks */ = {isa = PBXBuildFile; productRef = 784498770D3D70474D8F94EF /* FuseMount */; };
 		F94E767D9E4BD1E8F54BE2B9 /* ZippyFSExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC03D1E6501C02A15AC5150 /* ZippyFSExtension.swift */; };
-		FCAB03F6ACFFED93CBBC3A41 /* ZippyFS.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA46C25A212462CA66AA5835 /* ArchiveMounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D0B9ECD0C3B7D1CAB77819 /* ArchiveMounter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		D06375FA634A4875690CE26F /* PBXContainerItemProxy */ = {
+		98BFB9E0E756E2D39686FF39 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 6DDDCB8BD3A0CA023D6C883E /* Project object */;
 			proxyType = 1;
@@ -27,13 +32,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		C0573BCD507D37C2FF005292 /* Embed ExtensionKit Extensions */ = {
+		869F4F1117D131DB2E5E2A44 /* Embed ExtensionKit Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
 			dstSubfolderSpec = 16;
 			files = (
-				FCAB03F6ACFFED93CBBC3A41 /* ZippyFS.appex in Embed ExtensionKit Extensions */,
+				0A16162B93DBC81920BE9CCF /* ZippyFS.appex in Embed ExtensionKit Extensions */,
 			);
 			name = "Embed ExtensionKit Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -42,29 +47,48 @@
 
 /* Begin PBXFileReference section */
 		044D18ABD9F753D382FF376C /* ZipVolume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipVolume.swift; sourceTree = "<group>"; };
+		16D5DD377F65CBB1D318231C /* ZippyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZippyApp.swift; sourceTree = "<group>"; };
 		2A9DACDE18CDF9E05F8FCE81 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		36A5E9E2EF44670094F44A3D /* ZippyFS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = ZippyFS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C36ACFBAC826CC711F03E17 /* ServeCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServeCommand.swift; sourceTree = "<group>"; };
+		6ECDA4F5F1DC68E466ECF992 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		750FEDF2057CF37ACBB24ECA /* ZipFileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipFileSystem.swift; sourceTree = "<group>"; };
+		7C22B271F27D5DCB93A18AF9 /* FuseMount */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FuseMount; path = FuseMount; sourceTree = SOURCE_ROOT; };
 		7F5802F2FFB82E40CFCF8A7D /* ZippyFS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZippyFS.entitlements; sourceTree = "<group>"; };
+		847BD8A76F5E4A8072171A68 /* ZippyFSKit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZippyFSKit.entitlements; sourceTree = "<group>"; };
+		87D0B9ECD0C3B7D1CAB77819 /* ArchiveMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMounter.swift; sourceTree = "<group>"; };
 		8DC03D1E6501C02A15AC5150 /* ZippyFSExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZippyFSExtension.swift; sourceTree = "<group>"; };
 		8DF52B62537910FAE23833D3 /* Zippy.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Zippy.entitlements; sourceTree = "<group>"; };
-		93C3E173A8AFB65C4BEF0E91 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		94E2071CE3E4BD6622D5271F /* ZippyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZippyApp.swift; sourceTree = "<group>"; };
-		A171C7E6AAD8116A0B89A109 /* ArchiveMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMounter.swift; sourceTree = "<group>"; };
 		B064CFCB0FC7D2B615C34366 /* Zippy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zippy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B15FA910CAC2BF7F964A3825 /* Main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Main.swift; sourceTree = "<group>"; };
 		C8C7C76EE9CDDAD1732D8DAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CA1F245B3259E3C293D9775C /* ArchiveCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArchiveCore; path = ArchiveCore; sourceTree = SOURCE_ROOT; };
+		E8768C14E26B3C3BB3200175 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		EDADC737217DEB4167EC063F /* Zippy-FSKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Zippy-FSKit.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F62F09C5DFC874E12ABF5E85 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F86F2258363ED7FE0D161EA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5F75399D2483B332BD79A7C /* ArchiveCore in Frameworks */,
+				E16FB8CF5AD481D39F2F185D /* FuseMount in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		04F1C01DBECBA6457B73FDE4 /* Zippy */ = {
 			isa = PBXGroup;
 			children = (
-				A171C7E6AAD8116A0B89A109 /* ArchiveMounter.swift */,
-				93C3E173A8AFB65C4BEF0E91 /* ContentView.swift */,
+				E8768C14E26B3C3BB3200175 /* AppDelegate.swift */,
 				2A9DACDE18CDF9E05F8FCE81 /* Info.plist */,
+				B15FA910CAC2BF7F964A3825 /* Main.swift */,
+				6C36ACFBAC826CC711F03E17 /* ServeCommand.swift */,
 				8DF52B62537910FAE23833D3 /* Zippy.entitlements */,
-				94E2071CE3E4BD6622D5271F /* ZippyApp.swift */,
 			);
 			path = Zippy;
 			sourceTree = "<group>";
@@ -72,16 +96,30 @@
 		383564B6AD2023F935C13B73 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				EDADC737217DEB4167EC063F /* Zippy-FSKit.app */,
 				B064CFCB0FC7D2B615C34366 /* Zippy.app */,
 				36A5E9E2EF44670094F44A3D /* ZippyFS.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		3C9792846C6BA87A858E6123 /* ZippyFSKit */ = {
+			isa = PBXGroup;
+			children = (
+				87D0B9ECD0C3B7D1CAB77819 /* ArchiveMounter.swift */,
+				6ECDA4F5F1DC68E466ECF992 /* ContentView.swift */,
+				F62F09C5DFC874E12ABF5E85 /* Info.plist */,
+				16D5DD377F65CBB1D318231C /* ZippyApp.swift */,
+				847BD8A76F5E4A8072171A68 /* ZippyFSKit.entitlements */,
+			);
+			path = ZippyFSKit;
+			sourceTree = "<group>";
+		};
 		7712BEDC6D761D1AD8EFF3B0 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
 				CA1F245B3259E3C293D9775C /* ArchiveCore */,
+				7C22B271F27D5DCB93A18AF9 /* FuseMount */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -92,6 +130,7 @@
 				7712BEDC6D761D1AD8EFF3B0 /* Packages */,
 				04F1C01DBECBA6457B73FDE4 /* Zippy */,
 				A20D20C64BC94F20D686A80B /* ZippyFS */,
+				3C9792846C6BA87A858E6123 /* ZippyFSKit */,
 				383564B6AD2023F935C13B73 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -128,20 +167,40 @@
 			productReference = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */;
 			productType = "com.apple.product-type.extensionkit-extension";
 		};
+		5720F4FA1CB035AF6DF64881 /* Zippy-FSKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7FA474AD35D6D40CEFA6356 /* Build configuration list for PBXNativeTarget "Zippy-FSKit" */;
+			buildPhases = (
+				FE30611C6DFE38AC9DB2ED25 /* Sources */,
+				869F4F1117D131DB2E5E2A44 /* Embed ExtensionKit Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				586B0A0B34BE39A2AB8E934D /* PBXTargetDependency */,
+			);
+			name = "Zippy-FSKit";
+			packageProductDependencies = (
+			);
+			productName = "Zippy-FSKit";
+			productReference = EDADC737217DEB4167EC063F /* Zippy-FSKit.app */;
+			productType = "com.apple.product-type.application";
+		};
 		F028FE1346B37D50C8D2AA67 /* Zippy */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0909D7DC2A8789E5B1A0CAE3 /* Build configuration list for PBXNativeTarget "Zippy" */;
 			buildPhases = (
 				22936F8ED5EF29BE76387A60 /* Sources */,
-				C0573BCD507D37C2FF005292 /* Embed ExtensionKit Extensions */,
+				F86F2258363ED7FE0D161EA4 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				DD87F841B9DDDA3CCC1A30C6 /* PBXTargetDependency */,
 			);
 			name = Zippy;
 			packageProductDependencies = (
+				4D7C4CDB2E89B6CB5FC13112 /* ArchiveCore */,
+				784498770D3D70474D8F94EF /* FuseMount */,
 			);
 			productName = Zippy;
 			productReference = B064CFCB0FC7D2B615C34366 /* Zippy.app */;
@@ -157,6 +216,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					00F55C16C5957522C31962ED = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					5720F4FA1CB035AF6DF64881 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
@@ -177,6 +240,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C159E1F253330BD99F657CD3 /* XCLocalSwiftPackageReference "ArchiveCore" */,
+				E7F6F99EDBA95C120A795DD4 /* XCLocalSwiftPackageReference "FuseMount" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 383564B6AD2023F935C13B73 /* Products */;
@@ -184,6 +248,7 @@
 			projectRoot = "";
 			targets = (
 				F028FE1346B37D50C8D2AA67 /* Zippy */,
+				5720F4FA1CB035AF6DF64881 /* Zippy-FSKit */,
 				00F55C16C5957522C31962ED /* ZippyFS */,
 			);
 		};
@@ -204,19 +269,29 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				836F289F941DC3B08C6550F9 /* ArchiveMounter.swift in Sources */,
-				7781C04DA46A571F96E8FEDA /* ContentView.swift in Sources */,
-				054FBFFC9828B6223EEC1029 /* ZippyApp.swift in Sources */,
+				724A32AC837E32E145955552 /* AppDelegate.swift in Sources */,
+				2C34E549E89DD36A47C68CB6 /* Main.swift in Sources */,
+				D66CC16357280DCE90D45208 /* ServeCommand.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE30611C6DFE38AC9DB2ED25 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA46C25A212462CA66AA5835 /* ArchiveMounter.swift in Sources */,
+				34414E5CE4E966E87746395E /* ContentView.swift in Sources */,
+				5321D8485126C28E3DFCD771 /* ZippyApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		DD87F841B9DDDA3CCC1A30C6 /* PBXTargetDependency */ = {
+		586B0A0B34BE39A2AB8E934D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 00F55C16C5957522C31962ED /* ZippyFS */;
-			targetProxy = D06375FA634A4875690CE26F /* PBXContainerItemProxy */;
+			targetProxy = 98BFB9E0E756E2D39686FF39 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -249,11 +324,29 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.Zippy.ZippyFS;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.ZippyFSKit.ZippyFS;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
+		};
+		3ACC860DC5B1469DC5A80305 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ZippyFSKit/ZippyFSKit.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = ZippyFSKit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.ZippyFSKit;
+				PRODUCT_NAME = "Zippy-FSKit";
+				SDKROOT = macosx;
+			};
+			name = Debug;
 		};
 		AB2D299C398E12319A64104A /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -266,7 +359,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.Zippy.ZippyFS;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.ZippyFSKit.ZippyFS;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -356,6 +449,24 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		E419B827406232577D7E09C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ZippyFSKit/ZippyFSKit.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = ZippyFSKit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.zippy.ZippyFSKit;
+				PRODUCT_NAME = "Zippy-FSKit";
+				SDKROOT = macosx;
+			};
+			name = Release;
 		};
 		FA7A00C4CFAA2DB5BD80F733 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -448,6 +559,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		A7FA474AD35D6D40CEFA6356 /* Build configuration list for PBXNativeTarget "Zippy-FSKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3ACC860DC5B1469DC5A80305 /* Debug */,
+				E419B827406232577D7E09C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -455,7 +575,22 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ArchiveCore;
 		};
+		E7F6F99EDBA95C120A795DD4 /* XCLocalSwiftPackageReference "FuseMount" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = FuseMount;
+		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4D7C4CDB2E89B6CB5FC13112 /* ArchiveCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ArchiveCore;
+		};
+		784498770D3D70474D8F94EF /* FuseMount */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FuseMount;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6DDDCB8BD3A0CA023D6C883E /* Project object */;
 }

@@ -128,6 +128,9 @@ import Testing
         let archive = try ZipArchive(url: zip)
         let file = try #require(archive.index.lookup(path: "Grüße/Ärger.txt"))
         #expect(try archive.contents(of: file.id) == Data("ä".utf8))
+        // zerlegte Schreibweise (wie vom Finder) findet denselben Eintrag
+        let decomposed = "Grüße/Ärger.txt".decomposedStringWithCanonicalMapping
+        #expect(archive.index.lookup(path: decomposed)?.id == file.id)
         let empty = try #require(archive.index.lookup(path: "leer.txt"))
         #expect(empty.size == 0)
         #expect(try archive.contents(of: empty.id).isEmpty)

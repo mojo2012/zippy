@@ -55,3 +55,25 @@ und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cac
     swift run archivetool cat datei.zip pfad/im/zip
 
 Vorerst nicht unterstützt: verschlüsselte ZIPs, LZMA/XZ-komprimierte Einträge.
+
+## Zippy mit FUSE-T (aktuelle Variante)
+
+Voraussetzung: FUSE-T (`brew install macos-fuse-t/cask/fuse-t`), kostenlos für
+nicht-kommerzielle Nutzung. Bauen mit `./build.sh`, die FSKit-Variante mit `./build.sh fskit`.
+
+Ablauf wie bei einer .dmg:
+- Doppelklick auf ein ZIP (bzw. `open -a Zippy datei.zip`) → Zippy startet pro Archiv
+  einen Hilfsprozess `Zippy --serve …`, öffnet ein Finder-Fenster und beendet sich.
+- Der Hilfsprozess stellt das Volume bereit, bis es ausgeworfen wird, und beendet sich dann.
+- Mountpunkte liegen unter `/private/tmp/Zippy-<uid>/<Name>` (FUSE-T darf nicht nach /Volumes).
+
+Erkenntnisse aus den Tests (FUSE-T 1.2.9):
+- Ein Volume pro Prozess, Mounten und `fuse_loop` im Haupt-Thread. Mehrere Volumes in
+  Hintergrund-Threads eines Prozesses → Aushängen wird nicht erkannt.
+- `fuse_loop_mt` kehrt nach dem Aushängen nie zurück.
+- SIGPIPE muss ignoriert werden.
+- FUSE-T-Volumes sind NFS: macOS fragt Zippy einmalig nach „Zugriff auf Netzwerk-Volumes“
+  (beim Öffnen des Finder-Fensters). Bis zur Antwort blockiert der Zugriff.
+- Prozesse, die ein FUSE-T-Volume testen, nicht in einer Sandbox starten (lokale
+  Netzwerkverbindung zum NFS-Server wird sonst blockiert → hängender Mount).
+- Hängt doch einmal ein Mount: `umount -f <pfad>` (ggf. mit sudo).

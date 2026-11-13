@@ -1,7 +1,7 @@
 import FSKit
 import os
 
-let log = Logger(subsystem: "dev.zippy.Zippy.ZippyFS", category: "fs")
+let log = Logger(subsystem: "dev.zippy.ZippyFSKit.ZippyFS", category: "fs")
 
 /// Prüft Block-Geräte auf eine ZIP-Signatur und liefert dafür ein Volume.
 ///

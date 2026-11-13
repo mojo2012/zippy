@@ -2,12 +2,14 @@ name: Zippy
 options:
   bundleIdPrefix: dev.zippy          # TODO: auf eigene Domain ändern
   deploymentTarget:
-    macOS: "15.4"                    # FSKit gibt es ab macOS 15.4
+    macOS: "15.4"
   createIntermediateGroups: true
 
 packages:
   ArchiveCore:
-    path: ArchiveCore    # ZIP-Kern (libarchive), wird in Schritt 2/3 von den Adaptern genutzt
+    path: ArchiveCore    # ZIP-Kern (libarchive)
+  FuseMount:
+    path: FuseMount      # Adapter auf FUSE-T
 
 settings:
   base:
@@ -19,6 +21,8 @@ settings:
     DEVELOPMENT_TEAM: ""             # TODO: Team-ID eintragen
 
 targets:
+  # Zippy mit FUSE-T: Hintergrund-App ohne Fenster, ohne Sandbox.
+  # Doppelklick auf ein ZIP → Volume im Finder → Auswerfen → Zippy beendet sich.
   Zippy:
     type: application
     platform: macOS
@@ -28,8 +32,38 @@ targets:
       properties:
         CFBundleDisplayName: Zippy
         LSApplicationCategoryType: public.app-category.utilities
+        LSUIElement: true              # kein Dock-Symbol, kein Menü
+        NSPrincipalClass: NSApplication
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: ZIP-Archiv
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate   # Standard-App wird man über „Öffnen mit → Alle ändern“
+            LSItemContentTypes: [com.pkware.zip-archive, public.zip-archive]
     entitlements:
       path: Zippy/Zippy.entitlements
+      properties:
+        # libfuse-t.dylib ist von FUSE-T signiert, nicht von uns
+        com.apple.security.cs.disable-library-validation: true
+    dependencies:
+      - package: ArchiveCore
+      - package: FuseMount
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
+        ENABLE_HARDENED_RUNTIME: YES
+
+  # FSKit-Variante (Prototyp, braucht bezahlten Developer-Account zum Testen)
+  Zippy-FSKit:
+    type: application
+    platform: macOS
+    sources: [ZippyFSKit]
+    info:
+      path: ZippyFSKit/Info.plist
+      properties:
+        CFBundleDisplayName: Zippy
+        LSApplicationCategoryType: public.app-category.utilities
+    entitlements:
+      path: ZippyFSKit/ZippyFSKit.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.files.user-selected.read-only: true
@@ -38,10 +72,11 @@ targets:
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
+        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.ZippyFSKit
+        PRODUCT_NAME: Zippy-FSKit
         ENABLE_HARDENED_RUNTIME: YES
 
-  # FSKit-Erweiterung (ExtensionKit), landet in Zippy.app/Contents/Extensions
+  # FSKit-Erweiterung (ExtensionKit), landet in Zippy-FSKit.app/Contents/Extensions
   ZippyFS:
     type: extensionkit-extension
     platform: macOS
@@ -73,6 +108,6 @@ targets:
         com.apple.developer.fskit.fsmodule: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy.ZippyFS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.ZippyFSKit.ZippyFS
         ENABLE_HARDENED_RUNTIME: YES
         SKIP_INSTALL: YES

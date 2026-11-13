@@ -19,8 +19,14 @@ public struct ArchiveIndex: Sendable {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// Sucht unabhängig von der Unicode-Schreibweise: Der Finder schickt Namen
+    /// oft zerlegt ("a" + "¨"), ZIPs enthalten meist die zusammengesetzte Form ("ä").
     public func lookup(_ name: String, in directoryID: UInt64) -> ArchiveEntry? {
-        childrenByName[directoryID]?[name].flatMap { entries[$0] }
+        childrenByName[directoryID]?[Self.key(name)].flatMap { entries[$0] }
+    }
+
+    private static func key(_ name: String) -> String {
+        name.precomposedStringWithCanonicalMapping
     }
 
     /// Sucht einen Eintrag über einen Pfad wie `"ordner/datei.txt"`.
@@ -83,7 +89,7 @@ public struct ArchiveIndex: Sendable {
             id: id, parentID: parentID, name: name, kind: kind, size: kind == .directory ? 0 : size,
             modificationDate: modificationDate, permissions: permissions,
             symlinkTarget: symlinkTarget, isEncrypted: isEncrypted, archiveIndex: archiveIndex)
-        childrenByName[parentID, default: [:]][name] = id
+        childrenByName[parentID, default: [:]][Self.key(name)] = id
     }
 
     private mutating func ensureDirectory(named name: String, in parentID: UInt64, date: Date) -> UInt64 {
@@ -96,13 +102,13 @@ public struct ArchiveIndex: Sendable {
             id: id, parentID: parentID, name: name, kind: .directory, size: 0,
             modificationDate: date, permissions: 0o755, symlinkTarget: nil,
             isEncrypted: false, archiveIndex: nil)
-        childrenByName[parentID, default: [:]][name] = id
+        childrenByName[parentID, default: [:]][Self.key(name)] = id
         return id
     }
 
     private mutating func remove(_ id: UInt64) {
         guard let entry = entries.removeValue(forKey: id) else { return }
-        childrenByName[entry.parentID]?[entry.name] = nil
+        childrenByName[entry.parentID]?[Self.key(entry.name)] = nil
         for childID in (childrenByName.removeValue(forKey: id) ?? [:]).values {
             remove(childID)
         }

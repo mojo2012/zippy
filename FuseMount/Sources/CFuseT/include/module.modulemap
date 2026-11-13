@@ -1,0 +1,4 @@
+module CFuseT {
+    header "zippy_fuse.h"
+    export *
+}
