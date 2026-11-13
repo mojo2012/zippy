@@ -86,7 +86,7 @@ austauschbaren Umsetzungen; welche, entscheidet allein das Target:
 
 | Target | Ordner | Technik | Voraussetzung |
 |---|---|---|---|
-| `Zippy` | `Zippy/FUSE` | FUSE-T oder macFUSE, ein Hilfsprozess pro Volume | FUSE-T/macFUSE installiert |
+| `Zippy` | `Zippy/FUSE` | FUSE-T (Standard) oder macFUSE, ein Hilfsprozess pro Volume | FUSE-T installiert |
 | `Zippy-FSKit` | `Zippy/FSKit` | eigene FSKit-Erweiterung `ZippyFS`, Sandbox, App-Store-tauglich | bezahlter Developer-Account |
 
 Beide lesen ZIPs über `ArchiveCore`. Die FSKit-Variante hängt das ZIP als Zippy-Image an
@@ -101,4 +101,18 @@ ad hoc signierte Erweiterung. Mit Team-ID in `project.yml` sollte der Rest laufe
 Backend der FUSE-Variante einstellen (nicht `defaults write dev.zippy.Zippy …`: ein alter
 Sandbox-Container des ersten Prototyps lenkt das sonst um):
 
-    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t   # oder macfuse, auto
+    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse   # Standard: FUSE-T
+
+### Warum FUSE-T Standard ist und nicht macFUSE (Stand macFUSE 5.2, macOS 15.8)
+
+macFUSE mountet über FSKit (ohne Kernel-Erweiterung) und die Volumes gelten als lokal, aber:
+- Sie erscheinen nicht in der Finder-Seitenleiste (macFUSE mountet an DiskArbitration vorbei).
+- Finder/`diskutil` können nicht auswerfen; Zippy hängt sich dafür selbst in DiskArbitration ein.
+- Nur ein Volume gleichzeitig (nach Aktivieren der Erweiterung); weitere scheitern und
+  hinterlassen verwaiste Hilfs-Laufwerke, die nur das Festplattendienstprogramm löst.
+- Leerzeichen und Umlaute im Mountpfad lassen den Mount scheitern.
+- Unter /Volumes bleiben nach dem Aushängen leere Ordner, die nur root löschen kann.
+
+FUSE-T dagegen: stabil, mehrere Volumes, Auswerfen im Finder; Nachteil: alle Volumes stehen
+in der Seitenleiste unter dem Server „fuse-t“ und macOS fragt einmal nach „Netzwerk-Volumes“.
+Das .dmg-Verhalten (eigener Eintrag pro ZIP) liefert realistisch nur die FSKit-Variante.

@@ -6,8 +6,8 @@ public enum FuseBackend: String, CaseIterable, Sendable {
     /// FUSE-T: NFS-basiert, keine Systemerweiterung. Volumes erscheinen in der
     /// Finder-Seitenleiste als Freigaben unter dem Server „fuse-t“.
     case fuseT = "fuse-t"
-    /// macFUSE über FSKit (`backend=fskit`): lokale Volumes, einzeln in der
-    /// Seitenleiste wie eine .dmg.
+    /// macFUSE über FSKit (`backend=fskit`): lokale Volumes. Experimentell, siehe
+    /// ``choose(setting:)``.
     case macFUSE = "macfuse"
 
     public var displayName: String {
@@ -74,9 +74,10 @@ public enum FuseBackend: String, CaseIterable, Sendable {
         FileManager.default.fileExists(atPath: libraryPath)
     }
 
-    /// `auto` (oder nichts): macFUSE, wenn installiert, sonst FUSE-T.
+    /// Standard ist FUSE-T. macFUSE nur, wenn ausdrücklich eingestellt: Auf macOS 15
+    /// (macFUSE 5.2, FSKit) erscheinen die Volumes nicht in der Finder-Seitenleiste,
+    /// es geht nur eines gleichzeitig, und gescheiterte Mounts hinterlassen Geräte.
     public static func choose(setting: String?) -> FuseBackend {
-        if let setting, let backend = FuseBackend(rawValue: setting) { return backend }
-        return FuseBackend.macFUSE.isInstalled ? .macFUSE : .fuseT
+        setting == FuseBackend.macFUSE.rawValue ? .macFUSE : .fuseT
     }
 }

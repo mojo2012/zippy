@@ -5,7 +5,8 @@ import FuseMount
 /// der das Volume im Haupt-Thread bereitstellt und sich beim Auswerfen beendet.
 @MainActor
 final class FuseHelperMounter: ArchiveMounting {
-    /// Einstellbar mit `defaults write dev.zippy.Zippy Backend macfuse|fuse-t|auto` (Standard: auto).
+    /// Standard FUSE-T; macFUSE mit
+    /// `defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse`.
     private let backend = FuseBackend.choose(setting: UserDefaults.standard.string(forKey: "Backend"))
     private let stateDirectory = ZippyPaths.stateDirectory
     private var mountDirectory: URL { backend.mountDirectory(stateDirectory: stateDirectory) }
