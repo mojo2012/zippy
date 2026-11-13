@@ -31,7 +31,8 @@ enum ServeCommand {
             exit(1)
         }
 
-        FuseVolume.serve(archive, name: name, at: mountPoint, backend: backend) { error in
+        FuseVolume.serve(archive, name: name, at: mountPoint, backend: backend,
+                         volumeIcon: Bundle.main.url(forResource: "zip", withExtension: "icns")) { error in
             if let error {
                 report("ERROR \(error.localizedDescription)")
                 try? FileManager.default.removeItem(at: mountPoint)

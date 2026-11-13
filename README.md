@@ -117,6 +117,12 @@ FUSE-T dagegen: stabil, mehrere Volumes, Auswerfen im Finder; Nachteil: alle Vol
 in der Seitenleiste unter dem Server „fuse-t“ und macOS fragt einmal nach „Netzwerk-Volumes“.
 Das .dmg-Verhalten (eigener Eintrag pro ZIP) liefert realistisch nur die FSKit-Variante.
 
+Volume-Symbol: Zippy legt eine versteckte `.VolumeIcon.icns` (das ZIP-Symbol) ins Volume
+und setzt am Wurzelordner im Finder-Info das Flag für ein eigenes Symbol. Dafür mountet
+FUSE-T mit `namedattr`, sonst kommen keine erweiterten Attribute im Finder an. Das Symbol
+erscheint im Finder-Fenster und unter „Informationen“, die Seitenleiste zeigt weiter den
+Server. FUSE-Ts eigene Option `volicon` taugt nicht: Damit bleibt der Mount hängen.
+
 ## Icons
 
 Dokument-Icons pro Archivtyp im Stil der macOS-Dokumentsymbole, farbcodiert

@@ -27,21 +27,27 @@ public final class FuseVolume: @unchecked Sendable {
     public let archive: ZipArchive
     public let name: String
     public let mountPoint: URL
+    /// Inhalt von `/.VolumeIcon.icns`, das Zippy zusätzlich ins Volume legt.
+    fileprivate let volumeIcon: Data?
 
     fileprivate let uid = getuid()
     fileprivate let gid = getgid()
 
-    private init(archive: ZipArchive, name: String, mountPoint: URL) {
+    private init(archive: ZipArchive, name: String, mountPoint: URL, volumeIcon: Data?) {
         self.archive = archive
         self.name = name
         self.mountPoint = mountPoint
+        // Liegt im Archiv selbst schon eine, gewinnt die aus dem Archiv.
+        self.volumeIcon = archive.index.lookup(path: VolumeIcon.path) == nil ? volumeIcon : nil
     }
 
     /// Mountet und blockiert, bis das Volume ausgehängt ist.
     ///
     /// `ready` wird aus einem Hintergrund-Thread genau einmal aufgerufen: mit `nil`,
     /// sobald das Volume in der Mount-Tabelle steht, sonst mit dem Fehler.
+    /// `volumeIcon` (eine .icns-Datei) wird zum Symbol des Volumes.
     public static func serve(_ archive: ZipArchive, name: String, at mountPoint: URL, backend: FuseBackend,
+                             volumeIcon: URL? = nil,
                              ready: @escaping @Sendable ((any Error)?) -> Void) {
         guard zf_load(backend.libraryPath) == 0 else {
             return ready(FuseError.backendMissing(String(cString: zf_load_error())))
@@ -52,7 +58,8 @@ public final class FuseVolume: @unchecked Sendable {
             return ready(error)
         }
 
-        let volume = FuseVolume(archive: archive, name: name, mountPoint: mountPoint)
+        let volume = FuseVolume(archive: archive, name: name, mountPoint: mountPoint,
+                                volumeIcon: volumeIcon.flatMap { try? Data(contentsOf: $0) })
         var ops = makeOperations()
         // Kein eigenes "location": Der Servername muss auflösbar sein (FUSE-T trägt
         // "fuse-t" in /etc/hosts ein), sonst wird daraus "localhost". Darum stehen alle
@@ -135,6 +142,39 @@ public final class FuseVolume: @unchecked Sendable {
     }
 }
 
+// MARK: - Volume-Symbol
+
+/// Eigenes Volume-Symbol wie bei .dmg-Dateien: eine versteckte `.VolumeIcon.icns`
+/// im Wurzelordner, dazu im Finder-Info des Wurzelordners das Flag "eigenes Symbol".
+/// FUSE-Ts eigene Option `volicon` lässt den Mount hängen, darum von Hand.
+private enum VolumeIcon {
+    static let path = "/.VolumeIcon.icns"
+    static let name = ".VolumeIcon.icns"
+    /// Weder Inode noch Datei-Handle eines Archiveintrags.
+    static let id: UInt64 = 0x7A49_636F_6E00_0001
+    static let finderInfoName = "com.apple.FinderInfo"
+    /// 32 Byte; frFlags (Big Endian) ab Byte 8, kHasCustomIcon = 0x0400.
+    static let finderInfo: [UInt8] = { var b = [UInt8](repeating: 0, count: 32); b[8] = 0x04; return b }()
+
+    static func isIcon(_ path: UnsafePointer<CChar>?) -> Bool {
+        guard let path, currentVolume().volumeIcon != nil else { return false }
+        return String(cString: path) == Self.path
+    }
+
+    static func isRoot(_ path: UnsafePointer<CChar>?) -> Bool {
+        guard let path, currentVolume().volumeIcon != nil else { return false }
+        return String(cString: path) == "/"
+    }
+}
+
+/// Kopiert `bytes` für getxattr/listxattr: ohne Puffer nur die Länge melden.
+private func reply(_ bytes: [UInt8], into buffer: UnsafeMutablePointer<CChar>?, size: Int) -> Int32 {
+    guard let buffer, size > 0 else { return Int32(bytes.count) }
+    guard size >= bytes.count else { return -ERANGE }
+    for (i, byte) in bytes.enumerated() { buffer[i] = CChar(bitPattern: byte) }
+    return Int32(bytes.count)
+}
+
 // MARK: - FUSE-Callbacks
 
 private func currentVolume() -> FuseVolume {
@@ -178,7 +218,22 @@ private func makeOperations() -> fuse_operations {
     var ops = fuse_operations()
 
     ops.getattr = { path, st in
-        guard let st, let entry = entry(path) else { return -ENOENT }
+        guard let st else { return -EIO }
+        if VolumeIcon.isIcon(path) {
+            let volume = currentVolume()
+            let size = UInt64(volume.volumeIcon?.count ?? 0)
+            st.pointee = stat()
+            st.pointee.st_mode = S_IFREG | 0o444
+            st.pointee.st_nlink = 1
+            st.pointee.st_uid = volume.uid
+            st.pointee.st_gid = volume.gid
+            st.pointee.st_size = off_t(size)
+            st.pointee.st_blksize = 4096
+            st.pointee.st_blocks = blkcnt_t((size + 511) / 512)
+            st.pointee.st_ino = ino_t(VolumeIcon.id)
+            return 0
+        }
+        guard let entry = entry(path) else { return -ENOENT }
         fill(st, with: entry, volume: currentVolume())
         return 0
     }
@@ -188,6 +243,7 @@ private func makeOperations() -> fuse_operations {
         guard directory.isDirectory else { return -ENOTDIR }
         _ = filler(buffer, ".", nil, 0)
         _ = filler(buffer, "..", nil, 0)
+        if VolumeIcon.isRoot(path) { _ = filler(buffer, VolumeIcon.name, nil, 0) }
         for child in currentVolume().archive.index.children(of: directory.id) {
             if filler(buffer, child.name, nil, 0) != 0 { break }
         }
@@ -195,7 +251,13 @@ private func makeOperations() -> fuse_operations {
     }
 
     ops.open = { path, info in
-        guard let info, let entry = entry(path) else { return -ENOENT }
+        guard let info else { return -EIO }
+        if VolumeIcon.isIcon(path) {
+            guard info.pointee.flags & O_ACCMODE == O_RDONLY else { return -EROFS }
+            info.pointee.fh = VolumeIcon.id
+            return 0
+        }
+        guard let entry = entry(path) else { return -ENOENT }
         guard entry.kind == .file else { return -EISDIR }
         guard info.pointee.flags & O_ACCMODE == O_RDONLY else { return -EROFS }
         guard !entry.isEncrypted || currentVolume().archive.password != nil else { return -EACCES }
@@ -205,6 +267,13 @@ private func makeOperations() -> fuse_operations {
 
     ops.read = { _, buffer, size, offset, info in
         guard let buffer, let info else { return -EIO }
+        if info.pointee.fh == VolumeIcon.id {
+            guard let icon = currentVolume().volumeIcon, offset >= 0 else { return -EIO }
+            let start = min(Int(offset), icon.count), end = min(start + size, icon.count)
+            icon.copyBytes(to: UnsafeMutableRawPointer(buffer).assumingMemoryBound(to: UInt8.self),
+                           from: start..<end)
+            return Int32(end - start)
+        }
         do {
             let data = try currentVolume().archive.read(info.pointee.fh, offset: UInt64(offset), length: size)
             data.copyBytes(to: UnsafeMutableRawPointer(buffer).assumingMemoryBound(to: UInt8.self), count: data.count)
@@ -221,6 +290,18 @@ private func makeOperations() -> fuse_operations {
         for (i, byte) in bytes.enumerated() { buffer[i] = CChar(bitPattern: byte) }
         buffer[bytes.count] = 0
         return 0
+    }
+
+    ops.listxattr = { path, buffer, size in
+        guard VolumeIcon.isRoot(path) else { return 0 }
+        return reply(Array(VolumeIcon.finderInfoName.utf8) + [0], into: buffer, size: size)
+    }
+
+    ops.getxattr = { path, name, buffer, size, _ in
+        guard VolumeIcon.isRoot(path), let name, String(cString: name) == VolumeIcon.finderInfoName else {
+            return -ENOATTR
+        }
+        return reply(VolumeIcon.finderInfo, into: buffer, size: size)
     }
 
     ops.statfs = { _, st in

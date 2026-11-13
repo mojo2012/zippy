@@ -34,7 +34,7 @@ public enum FuseBackend: String, CaseIterable, Sendable {
     /// Zusätzliche Mount-Optionen.
     var extraOptions: String {
         switch self {
-        case .fuseT: ""
+        case .fuseT: ",namedattr"         // erweiterte Attribute (Finder-Info fürs Volume-Symbol)
         case .macFUSE: ",backend=fskit"   // ohne Kernel-Erweiterung, ab macOS 15.4
         }
     }
