@@ -70,6 +70,8 @@ public enum ArchiveFormat: Sendable, Equatable {
 /// Thread-sicher: Entpacken passiert nacheinander, Lesen aus dem Cache parallel.
 public final class Archive: @unchecked Sendable {
     public let source: any ArchiveSource
+    /// Bei geteilten Archiven alle Teile, sonst leer.
+    public private(set) var parts: [URL] = []
     public let index: ArchiveIndex
     public let format: ArchiveFormat
     /// Passwort für verschlüsselte Einträge (ZipCrypto oder AES).
@@ -82,11 +84,12 @@ public final class Archive: @unchecked Sendable {
         index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
     }
 
-    /// Kann Zippy Änderungen speichern? Nicht bei RAR, und nicht bei verschlüsseltem 7z:
-    /// libarchive kann 7z nur entschlüsseln, nicht verschlüsselt schreiben. Unverschlüsselt
+    /// Kann Zippy Änderungen speichern? Nicht bei RAR, nicht bei geteilten Archiven (die
+    /// Teile müssten neu zerschnitten werden), und nicht bei verschlüsseltem 7z: libarchive
+    /// kann 7z nur entschlüsseln, nicht verschlüsselt schreiben. Unverschlüsselt
     /// zurückzuschreiben wäre ein stilles Sicherheitsloch.
     public var canSave: Bool {
-        format.isWritable && !(format == .sevenZip && needsPassword)
+        format.isWritable && parts.isEmpty && !(format == .sevenZip && needsPassword)
     }
 
     private let cacheDirectory: URL
@@ -97,19 +100,23 @@ public final class Archive: @unchecked Sendable {
     public convenience init(url: URL, password: String? = nil) throws {
         let fileDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? Date()
+        let parts = try ArchiveParts.parts(for: url) ?? []
         do {
-            try self.init(source: FileSource(url: url), date: fileDate, password: password)
-        } catch ArchiveError.openFailed(let reason) where Self.isMultiPart(url) {
+            let source: any ArchiveSource = parts.count > 1 ? try MultiPartSource(urls: parts)
+                                                            : try FileSource(url: parts.first ?? url)
+            try self.init(source: source, date: fileDate, password: password)
+            if parts.count > 1 { self.parts = parts }
+        } catch ArchiveError.openFailed(let reason) where Self.isSplitZip(url) {
             // libarchive liest hier nur diese eine Datei und meldet dann z. B.
             // "Too small block encountered" – unverständlich für Menschen.
-            throw ArchiveError.openFailed("mehrteilige Archive werden noch nicht unterstützt (\(reason))")
+            throw ArchiveError.openFailed("geteilte ZIPs (.z01 …) werden noch nicht unterstützt (\(reason))")
         }
     }
 
-    /// Teil eines mehrteiligen Archivs? "x.part1.rar", "x.part01.rar", "x.r00", "x.7z.001", "x.zip.001", "x.z01".
-    static func isMultiPart(_ url: URL) -> Bool {
-        let name = url.lastPathComponent.lowercased()
-        return name.range(of: #"(\.part\d+\.rar|\.r\d\d|\.\d{3}|\.z\d\d)$"#, options: .regularExpression) != nil
+    /// Teil eines geteilten ZIPs von Info-ZIP/WinZip ("x.z01" … "x.zip"). Anders als
+    /// `.zip.001` sind das keine einfach zerschnittenen Bytes.
+    static func isSplitZip(_ url: URL) -> Bool {
+        url.lastPathComponent.lowercased().range(of: #"\.z\d\d$"#, options: .regularExpression) != nil
     }
 
     /// Archiv aus einer beliebigen Quelle, z. B. einem Block-Gerät.
@@ -130,8 +137,10 @@ public final class Archive: @unchecked Sendable {
     deinit { close() }
 
     /// Name des Volumes: Dateiname ohne Endung, bei "x.tar.gz" ohne beide.
+    /// Bei geteilten Archiven ohne Teil-Endung: "Fotos.part01.rar", "Fotos.7z.001" → "Fotos".
     public static func volumeName(for url: URL) -> String {
-        let stem = url.deletingPathExtension().lastPathComponent
+        let name = ArchiveParts.wholeName(of: url) ?? url.lastPathComponent
+        let stem = (name as NSString).deletingPathExtension
         return (stem as NSString).pathExtension.lowercased() == "tar" ? (stem as NSString).deletingPathExtension : stem
     }
 

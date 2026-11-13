@@ -60,6 +60,12 @@ targets:
             CFBundleTypeIconFile: 7z
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.7-zip.7-zip-archive]
+          - CFBundleTypeName: Geteiltes Archiv
+            CFBundleTypeRole: Viewer       # nur lesbar
+            LSHandlerRank: Alternate
+            # Teile wie Name.7z.001 oder Name.r00 haben keinen eigenen Dateityp in macOS.
+            # Name.part1.rar ist ein normales RAR.
+            CFBundleTypeExtensions: ["001", "002", "003", "r00", "r01", "r02"]
           - CFBundleTypeName: RAR-Archiv
             CFBundleTypeRole: Viewer       # nur lesbar
             CFBundleTypeIconFile: rar

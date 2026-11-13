@@ -78,3 +78,46 @@ public final class BlockSource: ArchiveSource, @unchecked Sendable {
         return available
     }
 }
+
+/// Mehrere Dateien als eine: die Teile eines geteilten Archivs, hintereinander gelesen.
+///
+/// Reicht für alle Arten, die Zippy kennt: Bei `.7z.001`, `.zip.001` … sind die Teile
+/// zerschnittene Bytes. Mehrteilige RAR (`.part1.rar`, `.rar` + `.r00`) haben zwar je
+/// Teil eigene Köpfe, libarchive liest sie aber genauso als fortlaufenden Datenstrom
+/// (wie bei `archive_read_open_filenames`).
+public final class MultiPartSource: ArchiveSource, @unchecked Sendable {
+    public let size: UInt64
+    private let parts: [(source: FileSource, start: UInt64)]
+
+    public init(urls: [URL]) throws {
+        var parts: [(FileSource, UInt64)] = []
+        var offset: UInt64 = 0
+        for url in urls {
+            let source = try FileSource(url: url)
+            parts.append((source, offset))
+            offset += source.size
+        }
+        self.parts = parts
+        size = offset
+    }
+
+    public func read(into buffer: UnsafeMutableRawBufferPointer, at offset: UInt64) throws -> Int {
+        guard offset < size, buffer.count > 0 else { return 0 }
+        // Teil mit dem Anfang suchen, dann über Teilgrenzen weiterlesen
+        var index = parts.lastIndex { $0.start <= offset } ?? 0
+        var position = offset
+        var filled = 0
+        while filled < buffer.count, index < parts.count {
+            let part = parts[index]
+            let inPart = position - part.start
+            guard inPart < part.source.size else { index += 1; continue }
+            let wanted = min(buffer.count - filled, Int(part.source.size - inPart))
+            let count = try part.source.read(into: UnsafeMutableRawBufferPointer(rebasing: buffer[filled..<filled + wanted]),
+                                             at: inPart)
+            if count == 0 { break }
+            filled += count
+            position += UInt64(count)
+        }
+        return filled
+    }
+}

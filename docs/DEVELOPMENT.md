@@ -102,8 +102,25 @@ immer schreibgeschützt, das Volume wird mit `rdonly` gemountet. Symbol `rar.icn
   Datei und jeden Link mit dem, was das System-tar entpackt.
 - Verschlüsselte RAR (Daten oder Dateinamen) kann libarchive nur erkennen, nicht
   entschlüsseln; Zippy lehnt sie ab wie verschlüsselte 7z.
-- Mehrteilige Archive (`.part1.rar`, `.r00`, `.7z.001`, `.z01` …) gehen nicht: Zippy liest
-  nur die eine Datei. Am Dateinamen erkannt, gibt es dafür eine verständliche Meldung.
+- Mehrteilige RAR siehe „Geteilte Archive“.
+
+### Geteilte Archive
+
+`ArchiveParts` erkennt die Teile am Namen, egal welcher Teil geöffnet wird, und sucht im
+selben Ordner alle Teile in Reihenfolge; fehlt einer, kommt „Teil … fehlt“.
+- `Name.part1.rar` / `Name.part01.rar` …, `Name.rar` + `Name.r00` … (RAR), und
+  `Name.<ext>.001` … (von 7-Zip zerschnitten, jedes Format).
+- `MultiPartSource` liest die Teile hintereinander wie eine Datei. Bei den zerschnittenen
+  ist das selbstverständlich; mehrteilige RAR liest libarchive genauso als fortlaufenden
+  Strom (wie `archive_read_open_filenames`). Getestet mit RAR4, RAR5 solide, `.rar`/`.r00`
+  und einem zerschnittenen 7z.
+- Nur lesbar (`Archive.canSave`), die Teile müssten sonst neu zerschnitten werden.
+- Die App ersetzt jeden geöffneten Teil durch den ersten (`ArchiveParts.firstPart`), damit
+  mehrere markierte Teile nur ein Volume ergeben und „schon gemountet“ greift.
+- Teile ohne eigenen macOS-Dateityp (`.001`–`.003`, `.r00`–`.r02`) sind per Endung registriert.
+- Nicht unterstützt: geteilte ZIPs von Info-ZIP/WinZip (`.z01` … `.zip`), anders aufgebaut.
+  Die FSKit-Variante (Zippy-Image) kennt nur einzelne Dateien.
+- 7-Zip aus Homebrew hat keinen RAR-Entpacker (Lizenz), taugt also nicht als RAR-Vergleich.
 
 Links: FUSE-T liest über FSKit nur so viele Bytes des Link-Ziels, wie `st_size` angibt.
 Darum meldet `getattr` bei Links die Länge des Ziels (sonst zeigen sie ins Leere).

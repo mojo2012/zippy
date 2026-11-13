@@ -60,6 +60,23 @@
 			</array>
 		</dict>
 		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>001</string>
+				<string>002</string>
+				<string>003</string>
+				<string>r00</string>
+				<string>r01</string>
+				<string>r02</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Geteiltes Archiv</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+		</dict>
+		<dict>
 			<key>CFBundleTypeIconFile</key>
 			<string>rar</string>
 			<key>CFBundleTypeName</key>

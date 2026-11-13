@@ -1,4 +1,5 @@
 import AppKit
+import ArchiveCore
 import os
 import UserNotifications
 
@@ -52,7 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showMissing(missing)
             return quitIfDone()
         }
-        waiting.append(contentsOf: urls)
+        // Geteilte Archive: jeder Teil steht für den ganzen Satz, gemerkt wird der erste.
+        // Mehrere markierte Teile desselben Archivs ergeben so nur ein Volume.
+        for url in urls.map(ArchiveParts.firstPart(of:)) where !waiting.contains(url) {
+            waiting.append(url)
+        }
         startNext()
     }
 

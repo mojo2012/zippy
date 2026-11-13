@@ -65,15 +65,6 @@ import Testing
         }
     }
 
-    @Test func recognizesMultiPartNames() {
-        for name in ["a.part1.rar", "a.part01.rar", "a.r00", "a.7z.001", "a.z01"] {
-            #expect(Archive.isMultiPart(URL(fileURLWithPath: "/tmp/\(name)")), "\(name)")
-        }
-        for name in ["a.rar", "a.zip", "a.tar.gz", "part1.zip"] {
-            #expect(!Archive.isMultiPart(URL(fileURLWithPath: "/tmp/\(name)")), "\(name)")
-        }
-    }
-
     @Test func volumeName() {
         #expect(Archive.volumeName(for: URL(fileURLWithPath: "/tmp/Fotos.rar")) == "Fotos")
     }
