@@ -18,6 +18,6 @@ if [[ "${1:-}" == "fskit" ]]; then
     -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | grep -E "error|BUILD" || true
   FSAPP=$PWD/build/Build/Products/Debug/Zippy-FSKit.app
   codesign -f -s - --options runtime --entitlements ZippyFS/ZippyFS.entitlements "$FSAPP/Contents/Extensions/ZippyFS.appex"
-  codesign -f -s - --options runtime --entitlements ZippyFSKit/ZippyFSKit.entitlements "$FSAPP"
+  codesign -f -s - --options runtime --entitlements Zippy/Zippy-FSKit.entitlements "$FSAPP"
   echo "Fertig: $FSAPP"
 fi

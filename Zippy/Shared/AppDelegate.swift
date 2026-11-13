@@ -1,0 +1,109 @@
+import AppKit
+import os
+
+let log = Logger(subsystem: "dev.zippy.Zippy", category: "app")
+
+/// Zippy-App ohne Fenster. Lebt nur, bis die angefragten Volumes bereit sind:
+///
+/// - Doppelklick / „Öffnen mit“ → ``application(_:open:)``
+/// - Archive nacheinander an den ``ArchiveMounting`` geben (gleichzeitige Mounts
+///   verträgt nicht jede Technik)
+/// - Finder-Fenster öffnen, wie bei einer .dmg
+/// - alles erledigt → App beendet sich; die Volumes bleiben, bis sie ausgeworfen werden
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let mounter = Variant.makeMounter()
+
+    /// Archive, die noch gemountet werden sollen.
+    private var waiting: [URL] = []
+    private var busy = false
+    /// Finder-Fenster, deren Öffnen noch nicht bestätigt ist.
+    private var openingWindows = 0
+    private var receivedFiles = false
+
+    // MARK: Lebenszyklus
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Vor application(_:open:), damit Reste keine Namen blockieren.
+        mounter.cleanUp()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Ohne Datei gestartet (z. B. Doppelklick auf die App): kurz erklären, beenden.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
+            guard !receivedFiles else { return }
+            alert("Zippy öffnet ZIP-Archive als Volume.",
+                  info: "Doppelklicke ein ZIP oder wähle im Finder „Öffnen mit → Zippy“.")
+            NSApp.terminate(nil)
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        receivedFiles = true
+        if let missing = mounter.missingComponent {
+            showMissing(missing)
+            return quitIfDone()
+        }
+        waiting.append(contentsOf: urls)
+        startNext()
+    }
+
+    // MARK: Mounten
+
+    private func startNext() {
+        guard !busy else { return }
+        guard !waiting.isEmpty else { return quitIfDone() }
+        let archive = waiting.removeFirst()
+        busy = true
+        Task {
+            do {
+                let mountPoint = try await mounter.mount(archive)
+                log.info("bereit: \(mountPoint.path, privacy: .public)")
+                showInFinder(mountPoint)
+            } catch {
+                alert("„\(archive.lastPathComponent)“ lässt sich nicht öffnen.", info: error.localizedDescription)
+            }
+            busy = false
+            startNext()
+        }
+    }
+
+    /// Öffnet ein Finder-Fenster für das Volume. Die App beendet sich erst, wenn
+    /// der Finder das Öffnen bestätigt hat.
+    private func showInFinder(_ mountPoint: URL) {
+        openingWindows += 1
+        NSWorkspace.shared.open(mountPoint, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            if let error { log.error("Finder-Fenster: \(error.localizedDescription, privacy: .public)") }
+            Task { @MainActor in
+                self.openingWindows -= 1
+                self.quitIfDone()
+            }
+        }
+    }
+
+    private func quitIfDone() {
+        if !busy && waiting.isEmpty && openingWindows == 0 { NSApp.terminate(nil) }
+    }
+
+    // MARK: Hinweise
+
+    private func alert(_ message: String, info: String) {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.informativeText = info
+        alert.runModal()
+    }
+
+    private func showMissing(_ missing: (name: String, downloadURL: URL)) {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "Zippy braucht \(missing.name)."
+        alert.informativeText = "\(missing.name) stellt die Volumes bereit und ist kostenlos. Danach das ZIP erneut öffnen."
+        alert.addButton(withTitle: "\(missing.name) laden")
+        alert.addButton(withTitle: "Abbrechen")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(missing.downloadURL)
+        }
+    }
+}

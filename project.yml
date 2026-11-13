@@ -21,15 +21,19 @@ settings:
     DEVELOPMENT_TEAM: ""             # TODO: Team-ID eintragen
 
 targets:
-  # Zippy mit FUSE-T: Hintergrund-App ohne Fenster, ohne Sandbox.
-  # Doppelklick auf ein ZIP → Volume im Finder → Auswerfen → Zippy beendet sich.
+  # Zwei austauschbare Varianten derselben App. Gemeinsam: Zippy/Shared
+  # (Dateien entgegennehmen, Finder-Fenster, beenden). Unterschiedlich ist nur,
+  # welche ArchiveMounting-Umsetzung dazukommt: Zippy/FUSE oder Zippy/FSKit.
+  # Doppelklick auf ein ZIP → Volume im Finder → Auswerfen.
+
+  # FUSE-Variante: FUSE-T oder macFUSE, ohne Sandbox, ohne Developer-Account.
   Zippy:
     type: application
     platform: macOS
-    sources: [Zippy]
+    sources: [Zippy/Shared, Zippy/FUSE]
     info:
       path: Zippy/Info.plist
-      properties:
+      properties: &appInfo
         CFBundleDisplayName: Zippy
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true              # kein Dock-Symbol, kein Menü
@@ -42,7 +46,7 @@ targets:
     entitlements:
       path: Zippy/Zippy.entitlements
       properties:
-        # libfuse-t.dylib ist von FUSE-T signiert, nicht von uns
+        # libfuse-t.dylib / libfuse.2.dylib sind von deren Herstellern signiert
         com.apple.security.cs.disable-library-validation: true
     dependencies:
       - package: ArchiveCore
@@ -52,22 +56,22 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
         ENABLE_HARDENED_RUNTIME: YES
 
-  # FSKit-Variante (Prototyp, braucht bezahlten Developer-Account zum Testen)
+  # FSKit-Variante: eigene Dateisystem-Erweiterung, Sandbox, App-Store-tauglich.
+  # Braucht einen bezahlten Developer-Account (Recht com.apple.developer.fskit.fsmodule).
   Zippy-FSKit:
     type: application
     platform: macOS
-    sources: [ZippyFSKit]
+    sources: [Zippy/Shared, Zippy/FSKit]
     info:
-      path: ZippyFSKit/Info.plist
-      properties:
-        CFBundleDisplayName: Zippy
-        LSApplicationCategoryType: public.app-category.utilities
+      path: Zippy/Info-FSKit.plist
+      properties: *appInfo
     entitlements:
-      path: ZippyFSKit/ZippyFSKit.entitlements
+      path: Zippy/Zippy-FSKit.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.files.user-selected.read-only: true
     dependencies:
+      - package: ArchiveCore
       - target: ZippyFS
         embed: true
     settings:
@@ -81,7 +85,8 @@ targets:
     type: extensionkit-extension
     platform: macOS
     sources: [ZippyFS]
-    frameworks: []
+    dependencies:
+      - package: ArchiveCore
     info:
       path: ZippyFS/Info.plist
       properties:

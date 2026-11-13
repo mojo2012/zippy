@@ -27,18 +27,25 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
 ///
 /// Thread-sicher: Entpacken passiert nacheinander, Lesen aus dem Cache parallel.
 public final class ZipArchive: @unchecked Sendable {
-    public let url: URL
+    public let source: any ArchiveSource
     public let index: ArchiveIndex
 
     private let cacheDirectory: URL
     private let lock = NSLock()
     private var extracted: [UInt64: URL] = [:]
 
-    public init(url: URL) throws {
-        self.url = url
+    /// Archiv aus einer Datei.
+    public convenience init(url: URL) throws {
         let fileDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? Date()
-        self.index = try Self.buildIndex(url: url, rootDate: fileDate)
+        try self.init(source: FileSource(url: url), date: fileDate)
+    }
+
+    /// Archiv aus einer beliebigen Quelle, z. B. einem Block-Gerät.
+    /// `date` gilt für Ordner ohne eigenes Datum.
+    public init(source: any ArchiveSource, date: Date = Date()) throws {
+        self.source = source
+        self.index = try Self.buildIndex(source: source, rootDate: date)
         self.cacheDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-\(UUID().uuidString)", isDirectory: true)
     }
@@ -89,8 +96,9 @@ public final class ZipArchive: @unchecked Sendable {
     }
 
     private func extract(position: Int, to file: URL) throws {
-        let archive = try Self.openArchive(url)
-        defer { archive_read_free(archive) }
+        let reader = try ArchiveReader(source: source)
+        let archive = reader.archive
+        defer { reader.close() }
 
         var header: OpaquePointer?
         for _ in 0..<position {
@@ -129,9 +137,10 @@ public final class ZipArchive: @unchecked Sendable {
     private static let typeDirectory: UInt32 = 0o040000
     private static let typeSymlink: UInt32 = 0o120000
 
-    private static func buildIndex(url: URL, rootDate: Date) throws -> ArchiveIndex {
-        let archive = try openArchive(url)
-        defer { archive_read_free(archive) }
+    private static func buildIndex(source: any ArchiveSource, rootDate: Date) throws -> ArchiveIndex {
+        let reader = try ArchiveReader(source: source)
+        let archive = reader.archive
+        defer { reader.close() }
 
         var index = ArchiveIndex(rootDate: rootDate)
         var header: OpaquePointer?
@@ -183,18 +192,75 @@ public final class ZipArchive: @unchecked Sendable {
 
     // MARK: libarchive
 
-    private static func openArchive(_ url: URL) throws -> OpaquePointer {
-        guard let archive = archive_read_new() else { throw ArchiveError.openFailed("libarchive") }
-        archive_read_support_format_zip(archive)
-        guard archive_read_open_filename(archive, url.path, 64 * 1024) == ARCHIVE_OK else {
-            let reason = message(archive)
-            archive_read_free(archive)
-            throw ArchiveError.openFailed(reason)
-        }
-        return archive
+    static func message(_ archive: OpaquePointer) -> String {
+        archive_error_string(archive).map { String(cString: $0) } ?? "unbekannter Fehler"
+    }
+}
+
+/// Ein offener libarchive-Lesevorgang über eine ``ArchiveSource``.
+/// Jeder Vorgang hat seine eigene Leseposition; die Quelle wird nur positionsbezogen gelesen.
+final class ArchiveReader {
+    let archive: OpaquePointer
+    private let state: Unmanaged<State>
+    private var closed = false
+
+    final class State {
+        let source: any ArchiveSource
+        var position: Int64 = 0
+        let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: 256 * 1024, alignment: 16)
+        init(source: any ArchiveSource) { self.source = source }
+        deinit { buffer.deallocate() }
     }
 
-    private static func message(_ archive: OpaquePointer) -> String {
-        archive_error_string(archive).map { String(cString: $0) } ?? "unbekannter Fehler"
+    init(source: any ArchiveSource) throws {
+        guard let archive = archive_read_new() else { throw ArchiveError.openFailed("libarchive") }
+        self.archive = archive
+        self.state = Unmanaged.passRetained(State(source: source))
+
+        archive_read_support_format_zip(archive)
+        archive_read_set_callback_data(archive, state.toOpaque())
+        archive_read_set_read_callback(archive) { _, data, buffer in
+            let state = Unmanaged<State>.fromOpaque(data!).takeUnretainedValue()
+            guard let count = try? state.source.read(into: state.buffer, at: UInt64(state.position)) else {
+                return -1
+            }
+            state.position += Int64(count)
+            buffer?.pointee = UnsafeRawPointer(state.buffer.baseAddress)
+            return count
+        }
+        archive_read_set_seek_callback(archive) { _, data, offset, whence in
+            let state = Unmanaged<State>.fromOpaque(data!).takeUnretainedValue()
+            let size = Int64(state.source.size)
+            let target: Int64 = switch whence {
+            case SEEK_SET: offset
+            case SEEK_CUR: state.position + offset
+            case SEEK_END: size + offset
+            default: -1
+            }
+            guard target >= 0 else { return Int64(ARCHIVE_FATAL) }
+            state.position = min(target, size)
+            return state.position
+        }
+        archive_read_set_skip_callback(archive) { _, data, request in
+            let state = Unmanaged<State>.fromOpaque(data!).takeUnretainedValue()
+            let skipped = min(request, Int64(state.source.size) - state.position)
+            state.position += max(0, skipped)
+            return max(0, skipped)
+        }
+
+        guard archive_read_open1(archive) == ARCHIVE_OK else {
+            let reason = ZipArchive.message(archive)
+            close()
+            throw ArchiveError.openFailed(reason)
+        }
+    }
+
+    deinit { close() }
+
+    func close() {
+        guard !closed else { return }
+        closed = true
+        archive_read_free(archive)
+        state.release()
     }
 }

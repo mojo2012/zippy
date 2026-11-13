@@ -77,3 +77,28 @@ Erkenntnisse aus den Tests (FUSE-T 1.2.9):
 - Prozesse, die ein FUSE-T-Volume testen, nicht in einer Sandbox starten (lokale
   Netzwerkverbindung zum NFS-Server wird sonst blockiert → hängender Mount).
 - Hängt doch einmal ein Mount: `umount -f <pfad>` (ggf. mit sudo).
+
+## Zwei Varianten, eine App
+
+Die App-Logik liegt in `Zippy/Shared` (Archive entgegennehmen, Finder-Fenster, beenden).
+Dahinter steckt die Schnittstelle `ArchiveMounting` (`mount(archiv) → Mountpunkt`) mit zwei
+austauschbaren Umsetzungen; welche, entscheidet allein das Target:
+
+| Target | Ordner | Technik | Voraussetzung |
+|---|---|---|---|
+| `Zippy` | `Zippy/FUSE` | FUSE-T oder macFUSE, ein Hilfsprozess pro Volume | FUSE-T/macFUSE installiert |
+| `Zippy-FSKit` | `Zippy/FSKit` | eigene FSKit-Erweiterung `ZippyFS`, Sandbox, App-Store-tauglich | bezahlter Developer-Account |
+
+Beide lesen ZIPs über `ArchiveCore`. Die FSKit-Variante hängt das ZIP als Zippy-Image an
+(`ArchiveCore/ZippyImage.swift`: APFS-Clone + Auffüllen auf 4096 + Trailer mit ZIP-Länge und Name),
+weil FSKit auf macOS 15 nur Block-Geräte kann. `ZippyFS` erkennt den Trailer und liest das
+ZIP blockweise über `BlockSource`.
+
+Stand FSKit-Variante (ohne Account geprüft): Image wird korrekt angelegt, macOS hängt es
+nur lesend an und prüft es mit `zippy_fskit`; danach beendet der Signatur-Wächter die
+ad hoc signierte Erweiterung. Mit Team-ID in `project.yml` sollte der Rest laufen (ungetestet).
+
+Backend der FUSE-Variante einstellen (nicht `defaults write dev.zippy.Zippy …`: ein alter
+Sandbox-Container des ersten Prototyps lenkt das sonst um):
+
+    defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t   # oder macfuse, auto

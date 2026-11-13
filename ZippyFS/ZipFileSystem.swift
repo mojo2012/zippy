@@ -1,55 +1,68 @@
+import ArchiveCore
 import FSKit
 import os
 
 let log = Logger(subsystem: "dev.zippy.ZippyFSKit.ZippyFS", category: "fs")
 
-/// Prüft Block-Geräte auf eine ZIP-Signatur und liefert dafür ein Volume.
+/// FSKit-Dateisystem für Zippy-Images (siehe ``ZippyImage``).
 ///
-/// Sequoia-Prototyp: macOS 15 kann FSKit-Volumes nur aus Block-Geräten bauen.
-/// Die App hängt das ZIP deshalb als rohes Disk-Image an (siehe README).
+/// macOS 15 kann FSKit-Volumes nur aus Block-Geräten bauen. Die App hängt das ZIP
+/// deshalb als Disk-Image an; diese Erweiterung erkennt das Gerät am Zippy-Trailer
+/// und stellt den Inhalt über ArchiveCore bereit, wie die FUSE-Varianten.
 final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
+
+    private var volume: ZipVolume?
 
     func probeResource(resource: FSResource,
                        replyHandler: @escaping (FSProbeResult?, (any Error)?) -> Void) {
         guard let device = resource as? FSBlockDeviceResource else {
-            log.info("probe: keine Block-Ressource")
             return replyHandler(.notRecognized, nil)
         }
-        log.info("probe: \(device.bsdName, privacy: .public), \(device.blockCount) Blöcke")
-        guard Self.hasZipSignature(device) else {
-            return replyHandler(.notRecognized, nil)
+        do {
+            guard let info = try ZippyImage.readInfo(blockSize: Int(device.blockSize), blockCount: device.blockCount,
+                                                     readBlocks: Self.reader(for: device)) else {
+                return replyHandler(.notRecognized, nil)
+            }
+            log.info("probe: \(device.bsdName, privacy: .public) ist Zippy-Image \(info.name, privacy: .public)")
+            replyHandler(.usable(name: info.name, containerID: FSContainerIdentifier(uuid: UUID())), nil)
+        } catch {
+            log.error("probe: \(error.localizedDescription, privacy: .public)")
+            replyHandler(.notRecognized, nil)
         }
-        replyHandler(.usable(name: "Zippy", containerID: FSContainerIdentifier(uuid: UUID())), nil)
     }
 
-    func loadResource(resource: FSResource,
-                      options: FSTaskOptions,
+    func loadResource(resource: FSResource, options: FSTaskOptions,
                       replyHandler: @escaping (FSVolume?, (any Error)?) -> Void) {
         guard let device = resource as? FSBlockDeviceResource else {
             return replyHandler(nil, POSIXError(.EINVAL))
         }
-        log.info("load: \(device.bsdName, privacy: .public)")
-        containerStatus = .ready
-        let size = device.blockSize * device.blockCount
-        replyHandler(ZipVolume(info: "FSKit hat das ZIP erkannt (\(size) Bytes Block-Gerät).\n"), nil)
+        do {
+            let (archive, info) = try ZippyImage.open(blockSize: Int(device.blockSize), blockCount: device.blockCount,
+                                                      readBlocks: Self.reader(for: device))
+            log.info("load: \(info.name, privacy: .public), \(archive.index.entries.count) Einträge")
+            let volume = ZipVolume(archive: archive, name: info.name)
+            self.volume = volume
+            containerStatus = .ready
+            replyHandler(volume, nil)
+        } catch {
+            log.error("load: \(error.localizedDescription, privacy: .public)")
+            replyHandler(nil, POSIXError(.EIO))
+        }
     }
 
-    func unloadResource(resource: FSResource,
-                        options: FSTaskOptions,
+    func unloadResource(resource: FSResource, options: FSTaskOptions,
                         replyHandler: @escaping ((any Error)?) -> Void) {
-        log.info("unload")
+        volume?.archive.close()
+        volume = nil
         replyHandler(nil)
     }
 
-    /// ZIP-Dateien beginnen mit "PK\u{3}\u{4}" (leere ZIPs mit "PK\u{5}\u{6}").
-    private static func hasZipSignature(_ device: FSBlockDeviceResource) -> Bool {
-        let length = Int(max(device.blockSize, 512))
-        let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: length, alignment: 16)
-        defer { buffer.deallocate() }
-        guard let read = try? device.read(into: buffer, startingAt: 0, length: length), read >= 4 else {
-            return false
+    /// Blockweises Lesen vom Gerät für ``BlockSource``.
+    private static func reader(for device: FSBlockDeviceResource)
+        -> @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int {
+        nonisolated(unsafe) let device = device
+        return { buffer, offset in
+            try device.read(into: buffer, startingAt: off_t(offset), length: buffer.count)
         }
-        let magic = Array(buffer.prefix(4))
-        return magic == [0x50, 0x4B, 0x03, 0x04] || magic == [0x50, 0x4B, 0x05, 0x06]
     }
 }
