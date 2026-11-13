@@ -11,13 +11,17 @@
 		09C916DF088515B07AC6A4E3 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
 		0A16162B93DBC81920BE9CCF /* ZippyFS.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 36A5E9E2EF44670094F44A3D /* ZippyFS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31686E9FCB4A67DD9BE6149 /* Variant.swift */; };
+		14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */; };
 		2419D2B49C0827503353AB69 /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
 		31D89944635A65196A46D914 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
 		33DE76421CF7D56BF62852E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
 		36B311D4E1AE09B29EE4EBB2 /* FuseHelperMounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */; };
+		3D27799EAFECAC64B213EED3 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF23B083DB365069FDEBAB2F /* Keychain.swift */; };
 		47D0BF9335E35B560014FAE8 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E784A9F039C544F1A1FF5E /* Main.swift */; };
 		4B14729041DED063C203F92E /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
+		5AF05218730660B33A6FCBB3 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF23B083DB365069FDEBAB2F /* Keychain.swift */; };
 		607A073DFDB9FFA8B3130587 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
+		6C357559A86FE63EC7E60F15 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF23B083DB365069FDEBAB2F /* Keychain.swift */; };
 		6F862DC0A58B23E950476323 /* ZipFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750FEDF2057CF37ACBB24ECA /* ZipFileSystem.swift */; };
 		7278BFB7B11497996F60EC9E /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18063B0E71113506684EE860 /* Variant.swift */; };
 		7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044D18ABD9F753D382FF376C /* ZipVolume.swift */; };
@@ -28,6 +32,7 @@
 		94C9B9AE17B66E3762B5C076 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
 		B5F75399D2483B332BD79A7C /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D7C4CDB2E89B6CB5FC13112 /* ArchiveCore */; };
 		BC3E193ACB466B1638486A12 /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0EC1BCD765D69DE07906B31F /* ArchiveCore */; };
+		BE35E51D5E5F6A3D996814CC /* PasswordPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */; };
 		BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */; };
 		C1CB94650320AB08A2D840FA /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
 		D4632882F8A6C7FDCE7E72B4 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
@@ -80,9 +85,11 @@
 		CAB8DBA0A68999BB177599B4 /* 7z.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = 7z.icns; sourceTree = "<group>"; };
 		D31686E9FCB4A67DD9BE6149 /* Variant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Variant.swift; sourceTree = "<group>"; };
 		D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveMounting.swift; sourceTree = "<group>"; };
+		D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordPrompt.swift; sourceTree = "<group>"; };
 		E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServeCommand.swift; sourceTree = "<group>"; };
 		EC9C602B56C256B11937A04D /* zip.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = zip.icns; sourceTree = "<group>"; };
 		EDADC737217DEB4167EC063F /* Zippy-FSKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Zippy-FSKit.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF23B083DB365069FDEBAB2F /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,7 +216,9 @@
 			children = (
 				3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */,
 				D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */,
+				EF23B083DB365069FDEBAB2F /* Keychain.swift */,
 				C7E784A9F039C544F1A1FF5E /* Main.swift */,
+				D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -357,6 +366,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C357559A86FE63EC7E60F15 /* Keychain.swift in Sources */,
 				6F862DC0A58B23E950476323 /* ZipFileSystem.swift in Sources */,
 				7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */,
 				F94E767D9E4BD1E8F54BE2B9 /* ZippyFSExtension.swift in Sources */,
@@ -370,7 +380,9 @@
 				33DE76421CF7D56BF62852E1 /* AppDelegate.swift in Sources */,
 				94C9B9AE17B66E3762B5C076 /* ArchiveMounting.swift in Sources */,
 				36B311D4E1AE09B29EE4EBB2 /* FuseHelperMounter.swift in Sources */,
+				5AF05218730660B33A6FCBB3 /* Keychain.swift in Sources */,
 				47D0BF9335E35B560014FAE8 /* Main.swift in Sources */,
+				14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */,
 				BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */,
 				0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */,
 			);
@@ -383,7 +395,9 @@
 				8E011E8C10FB05814EEB6E42 /* AppDelegate.swift in Sources */,
 				09C916DF088515B07AC6A4E3 /* ArchiveMounting.swift in Sources */,
 				060E576101F16131299BE59E /* FSKitMounter.swift in Sources */,
+				3D27799EAFECAC64B213EED3 /* Keychain.swift in Sources */,
 				8932D3E3E15F6B839F396E85 /* Main.swift in Sources */,
+				BE35E51D5E5F6A3D996814CC /* PasswordPrompt.swift in Sources */,
 				7278BFB7B11497996F60EC9E /* Variant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

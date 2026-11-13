@@ -65,7 +65,12 @@ targets:
     sources: [Zippy/Shared, Zippy/FSKit, Zippy/Resources]
     info:
       path: Zippy/Info-FSKit.plist
-      properties: *appInfo
+      properties:
+        <<: *appInfo
+        # Gemeinsamer Schlüsselbund für die Passwort-Übergabe an ZippyFS, z. B.
+        # "TEAMID.dev.zippy.shared". Braucht Team-ID und in beiden Entitlements
+        # keychain-access-groups. Leer: passwortgeschützte Archive werden abgelehnt.
+        ZippyKeychainGroup: ""
     entitlements:
       path: Zippy/Zippy-FSKit.entitlements
       properties:
@@ -85,13 +90,14 @@ targets:
   ZippyFS:
     type: extensionkit-extension
     platform: macOS
-    sources: [ZippyFS]
+    sources: [ZippyFS, Zippy/Shared/Keychain.swift]
     dependencies:
       - package: ArchiveCore
     info:
       path: ZippyFS/Info.plist
       properties:
         CFBundleDisplayName: Zippy
+        ZippyKeychainGroup: ""     # wie bei Zippy-FSKit
         EXAppExtensionAttributes:
           EXExtensionPointIdentifier: com.apple.fskit.fsmodule
           FSShortName: zippy

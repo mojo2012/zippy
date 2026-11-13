@@ -5,7 +5,8 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
     case openFailed(String)
     case notFound
     case notAFile
-    case encrypted
+    case passwordRequired
+    case wrongPassword
     case readFailed(String)
 
     public var errorDescription: String? {
@@ -13,7 +14,8 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
         case .openFailed(let reason): "Archiv lässt sich nicht öffnen: \(reason)"
         case .notFound: "Eintrag nicht gefunden."
         case .notAFile: "Eintrag ist keine Datei."
-        case .encrypted: "Eintrag ist verschlüsselt."
+        case .passwordRequired: "Das Archiv ist passwortgeschützt."
+        case .wrongPassword: "Das Passwort ist falsch."
         case .readFailed(let reason): "Lesen fehlgeschlagen: \(reason)"
         }
     }
@@ -29,22 +31,31 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
 public final class ZipArchive: @unchecked Sendable {
     public let source: any ArchiveSource
     public let index: ArchiveIndex
+    /// Passwort für verschlüsselte Einträge (ZipCrypto oder AES).
+    public let password: String?
+
+    /// Enthält das Archiv verschlüsselte Dateien? Die Namen sind bei ZIP nie
+    /// verschlüsselt, Auflisten geht also immer.
+    public var needsPassword: Bool {
+        index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
+    }
 
     private let cacheDirectory: URL
     private let lock = NSLock()
     private var extracted: [UInt64: URL] = [:]
 
     /// Archiv aus einer Datei.
-    public convenience init(url: URL) throws {
+    public convenience init(url: URL, password: String? = nil) throws {
         let fileDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? Date()
-        try self.init(source: FileSource(url: url), date: fileDate)
+        try self.init(source: FileSource(url: url), date: fileDate, password: password)
     }
 
     /// Archiv aus einer beliebigen Quelle, z. B. einem Block-Gerät.
     /// `date` gilt für Ordner ohne eigenes Datum.
-    public init(source: any ArchiveSource, date: Date = Date()) throws {
+    public init(source: any ArchiveSource, date: Date = Date(), password: String? = nil) throws {
         self.source = source
+        self.password = password
         self.index = try Self.buildIndex(source: source, rootDate: date)
         self.cacheDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("zippy-\(UUID().uuidString)", isDirectory: true)
@@ -58,6 +69,14 @@ public final class ZipArchive: @unchecked Sendable {
             extracted.removeAll()
             try? FileManager.default.removeItem(at: cacheDirectory)
         }
+    }
+
+    /// Prüft das Passwort, indem die kleinste verschlüsselte Datei entpackt wird.
+    /// Wirft ``ArchiveError/passwordRequired`` oder ``ArchiveError/wrongPassword``.
+    public func checkPassword() throws {
+        let candidates = index.entries.values.filter { $0.isEncrypted && $0.kind == .file && $0.size > 0 }
+        guard let smallest = candidates.min(by: { $0.size < $1.size }) else { return }
+        _ = try read(smallest.id, offset: 0, length: 1)
     }
 
     /// Liest bis zu `length` Bytes ab `offset`. Am Dateiende kommen weniger zurück.
@@ -84,7 +103,7 @@ public final class ZipArchive: @unchecked Sendable {
     private func extractedFile(for entry: ArchiveEntry) throws -> URL {
         try lock.withLock {
             if let file = extracted[entry.id] { return file }
-            guard !entry.isEncrypted else { throw ArchiveError.encrypted }
+            guard !entry.isEncrypted || password != nil else { throw ArchiveError.passwordRequired }
             guard let position = entry.archiveIndex else { throw ArchiveError.notAFile }
 
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
@@ -96,7 +115,7 @@ public final class ZipArchive: @unchecked Sendable {
     }
 
     private func extract(position: Int, to file: URL) throws {
-        let reader = try ArchiveReader(source: source)
+        let reader = try ArchiveReader(source: source, password: password)
         let archive = reader.archive
         defer { reader.close() }
 
@@ -125,7 +144,12 @@ public final class ZipArchive: @unchecked Sendable {
             if count == 0 { break }
             if count < 0 {
                 try? FileManager.default.removeItem(at: file)
-                throw ArchiveError.readFailed(Self.message(archive))
+                let message = Self.message(archive)
+                // libarchive: "Incorrect passphrase" / "Passphrase required for this entry"
+                if message.localizedCaseInsensitiveContains("passphrase") {
+                    throw password == nil ? ArchiveError.passwordRequired : ArchiveError.wrongPassword
+                }
+                throw ArchiveError.readFailed(message)
             }
             try output.write(contentsOf: buffer[0..<count])
         }
@@ -212,12 +236,17 @@ final class ArchiveReader {
         deinit { buffer.deallocate() }
     }
 
-    init(source: any ArchiveSource) throws {
+    init(source: any ArchiveSource, password: String? = nil) throws {
         guard let archive = archive_read_new() else { throw ArchiveError.openFailed("libarchive") }
         self.archive = archive
         self.state = Unmanaged.passRetained(State(source: source))
 
         archive_read_support_format_zip(archive)
+        if let password {
+            for variant in Self.passwordVariants(password) {
+                variant.withUnsafeBufferPointer { _ = archive_read_add_passphrase(archive, $0.baseAddress) }
+            }
+        }
         archive_read_set_callback_data(archive, state.toOpaque())
         archive_read_set_read_callback(archive) { _, data, buffer in
             let state = Unmanaged<State>.fromOpaque(data!).takeUnretainedValue()
@@ -256,6 +285,25 @@ final class ArchiveReader {
     }
 
     deinit { close() }
+
+    /// Dasselbe Passwort in den Byte-Folgen, die ZIP-Programme verwenden: UTF-8
+    /// zusammengesetzt und zerlegt (macOS-Werkzeuge schicken oft "o" + "¨" statt "ö"),
+    /// dazu Windows-1252 und DOS-Codepage 437 für alte ZipCrypto-Archive aus Windows.
+    /// libarchive probiert alle der Reihe nach.
+    static func passwordVariants(_ password: String) -> [[CChar]] {
+        let dos = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(
+            CFStringEncoding(CFStringEncodings.dosLatinUS.rawValue)))
+        let encodings: [Data?] = [
+            password.precomposedStringWithCanonicalMapping.data(using: .utf8),
+            password.decomposedStringWithCanonicalMapping.data(using: .utf8),
+            password.data(using: .windowsCP1252),
+            password.data(using: dos),
+        ]
+        var seen = Set<Data>()
+        return encodings.compactMap { $0 }.filter { seen.insert($0).inserted }.map { data in
+            data.map { CChar(bitPattern: $0) } + [0]
+        }
+    }
 
     func close() {
         guard !closed else { return }

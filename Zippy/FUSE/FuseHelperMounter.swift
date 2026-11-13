@@ -17,13 +17,15 @@ final class FuseHelperMounter: ArchiveMounting {
         backend.isInstalled ? nil : (backend.displayName, backend.downloadURL)
     }
 
-    func mount(_ archive: URL) async throws -> URL {
+    func mountedVolume(for archive: URL) -> URL? {
         let archivePath = archive.standardizedFileURL.path
+        return VolumeRecord.all(in: stateDirectory)
+            .first(where: { $0.archive == archivePath && $0.isAlive })
+            .map { URL(fileURLWithPath: $0.mountPoint) }
+    }
 
-        // Schon gemountet: vorhandenen Mountpunkt liefern.
-        if let existing = VolumeRecord.all(in: stateDirectory).first(where: { $0.archive == archivePath && $0.isAlive }) {
-            return URL(fileURLWithPath: existing.mountPoint)
-        }
+    func mount(_ archive: URL, password: String?) async throws -> URL {
+        let archivePath = archive.standardizedFileURL.path
 
         let name = archive.deletingPathExtension().lastPathComponent
         let mountPoint = uniqueMountPoint(for: name)
@@ -31,7 +33,9 @@ final class FuseHelperMounter: ArchiveMounting {
         let helper = Process()
         helper.executableURL = Bundle.main.executableURL
         helper.arguments = [ServeCommand.flag, backend.rawValue, archivePath, mountPoint.path, name]
-        helper.standardInput = FileHandle.nullDevice
+        // Passwort über stdin, nicht als Argument: Argumente sind für alle Prozesse sichtbar.
+        let input = Pipe()
+        helper.standardInput = input
         helper.standardError = FileHandle.nullDevice
         let output = Pipe()
         helper.standardOutput = output
@@ -53,6 +57,8 @@ final class FuseHelperMounter: ArchiveMounting {
             do {
                 try helper.run()
                 log.info("Hilfsprozess \(helper.processIdentifier) für \(name, privacy: .public)")
+                try? input.fileHandleForWriting.write(contentsOf: Data((password ?? "").utf8))
+                try? input.fileHandleForWriting.close()
             } catch {
                 once.resume(throwing: error)
             }

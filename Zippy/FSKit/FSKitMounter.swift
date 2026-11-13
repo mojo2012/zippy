@@ -24,15 +24,33 @@ final class FSKitMounter: ArchiveMounting {
     /// Die Erweiterung steckt in der App; ob sie eingeschaltet ist, zeigt sich erst beim Mounten.
     var missingComponent: (name: String, downloadURL: URL)? { nil }
 
-    func mount(_ archive: URL) async throws -> URL {
+    /// FSKit-Volumes werden nicht pro Archiv verwaltet: jedes Öffnen mountet neu.
+    func mountedVolume(for archive: URL) -> URL? { nil }
+
+    func mount(_ archive: URL, password: String?) async throws -> URL {
         let name = archive.deletingPathExtension().lastPathComponent
+
+        // Passwort an die Erweiterung: über den gemeinsamen Schlüsselbund, unter einer
+        // zufälligen ID, die im Image-Trailer steht. Die Erweiterung löscht den Eintrag.
+        var passwordID: UUID?
+        if let password {
+            guard let group = Keychain.sharedGroup else {
+                throw MountError(message: """
+                    Passwortgeschützte Archive brauchen in dieser Variante einen gemeinsamen \
+                    Schlüsselbund von App und Erweiterung (ZippyKeychainGroup, nur mit Developer-Account).
+                    """)
+            }
+            let id = UUID()
+            Keychain.save(password, service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
+            passwordID = id
+        }
 
         let accessing = archive.startAccessingSecurityScopedResource()
         defer { if accessing { archive.stopAccessingSecurityScopedResource() } }
 
         try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
         let image = imagesDirectory.appendingPathComponent("\(name) [\(UUID().uuidString.prefix(8))].img")
-        try ZippyImage.create(from: archive, at: image, name: name)
+        try ZippyImage.create(from: archive, at: image, name: name, passwordID: passwordID)
         // Nur lesbar: dann hängt DiskImageMounter das Image auch nur lesend an.
         try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: image.path)
 

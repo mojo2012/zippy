@@ -128,3 +128,19 @@ Dokument-Icons pro Archivtyp im Stil der macOS-Dokumentsymbole, farbcodiert
 
 Eingebunden ist vorerst nur `zip.icns` (Zippy kann bisher nur ZIP). Der Finder zeigt es,
 wenn Zippy die Standard-App für ZIP ist.
+
+## Passwortgeschützte ZIPs
+
+Unterstützt: ZipCrypto (klassisch, z. B. `zip -e`) und WinZip-AES (128/192/256, über
+CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
+
+- Enthält ein ZIP verschlüsselte Dateien, fragt Zippy vor dem Mounten nach dem Passwort
+  (`Zippy/Shared/PasswordPrompt.swift`), prüft es an der kleinsten verschlüsselten Datei und
+  fragt bei falschem Passwort erneut. Option „Im Schlüsselbund sichern“ (Dienst „Zippy“).
+- Umlaute: Das Passwort wird in mehreren Byte-Folgen probiert (UTF-8 NFC/NFD, Windows-1252,
+  DOS 437), weil ZIP-Programme das unterschiedlich machen.
+- FUSE-Variante: Passwort geht über stdin an den Hilfsprozess, nie über die Kommandozeile.
+- FSKit-Variante: Übergabe über einen gemeinsamen Schlüsselbund (`ZippyKeychainGroup` in
+  `project.yml`, dazu `keychain-access-groups` in beiden Entitlements). Im Image steht nur
+  eine zufällige ID, die Erweiterung löscht den Eintrag nach dem Lesen. Braucht Team-ID;
+  ohne lehnt die FSKit-Variante passwortgeschützte ZIPs mit einem Hinweis ab. Ungetestet.

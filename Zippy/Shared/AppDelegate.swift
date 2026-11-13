@@ -57,9 +57,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         busy = true
         Task {
             do {
-                let mountPoint = try await mounter.mount(archive)
+                if let existing = mounter.mountedVolume(for: archive) {
+                    showInFinder(existing)   // schon gemountet: nur das Fenster zeigen
+                    busy = false
+                    return startNext()
+                }
+                let password = try await PasswordPrompt.password(for: archive)
+                let mountPoint = try await mounter.mount(archive, password: password)
                 log.info("bereit: \(mountPoint.path, privacy: .public)")
                 showInFinder(mountPoint)
+            } catch is PasswordPrompt.Cancelled {
+                // Nutzer hat die Passwortabfrage abgebrochen: still überspringen
             } catch {
                 alert("„\(archive.lastPathComponent)“ lässt sich nicht öffnen.", info: error.localizedDescription)
             }

@@ -16,12 +16,15 @@ protocol ArchiveMounting {
     /// Fehlt etwas Installierbares (z. B. FUSE-T), Name und Download-Adresse.
     var missingComponent: (name: String, downloadURL: URL)? { get }
 
-    /// Reste früherer Läufe aufräumen. Wird vor dem ersten ``mount(_:)`` aufgerufen.
+    /// Reste früherer Läufe aufräumen. Wird vor dem ersten ``mount(_:password:)`` aufgerufen.
     func cleanUp()
 
+    /// Mountpunkt, falls dieses Archiv schon gemountet ist (dann ohne Passwortabfrage öffnen).
+    func mountedVolume(for archive: URL) -> URL?
+
     /// Mountet ein Archiv und liefert den Mountpunkt, sobald das Volume da ist.
-    /// Ist das Archiv schon gemountet, kommt der vorhandene Mountpunkt zurück.
-    func mount(_ archive: URL) async throws -> URL
+    /// `password` ist bereits geprüft (``PasswordPrompt``), nil bei unverschlüsselten Archiven.
+    func mount(_ archive: URL, password: String?) async throws -> URL
 }
 
 struct MountError: LocalizedError {

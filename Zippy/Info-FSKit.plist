@@ -44,5 +44,7 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>ZippyKeychainGroup</key>
+	<string></string>
 </dict>
 </plist>

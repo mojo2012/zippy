@@ -50,5 +50,7 @@
 		<key>FSSupportsBlockResources</key>
 		<true/>
 	</dict>
+	<key>ZippyKeychainGroup</key>
+	<string></string>
 </dict>
 </plist>

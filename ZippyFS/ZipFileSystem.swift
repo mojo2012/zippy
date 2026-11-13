@@ -37,8 +37,13 @@ final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
             return replyHandler(nil, POSIXError(.EINVAL))
         }
         do {
-            let (archive, info) = try ZippyImage.open(blockSize: Int(device.blockSize), blockCount: device.blockCount,
+            let blockSize = Int(device.blockSize)
+            var (archive, info) = try ZippyImage.open(blockSize: blockSize, blockCount: device.blockCount,
                                                       readBlocks: Self.reader(for: device))
+            if archive.needsPassword, let password = Self.takePassword(for: info) {
+                (archive, info) = try ZippyImage.open(blockSize: blockSize, blockCount: device.blockCount,
+                                                      password: password, readBlocks: Self.reader(for: device))
+            }
             log.info("load: \(info.name, privacy: .public), \(archive.index.entries.count) Einträge")
             let volume = ZipVolume(archive: archive, name: info.name)
             self.volume = volume
@@ -55,6 +60,17 @@ final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
         volume?.archive.close()
         volume = nil
         replyHandler(nil)
+    }
+
+    /// Holt das Passwort, das die App unter der ID aus dem Trailer abgelegt hat, und
+    /// löscht den Eintrag. Ohne Passwort bleibt das Volume lesbar, verschlüsselte
+    /// Dateien melden dann "Zugriff verweigert".
+    private static func takePassword(for info: ZippyImage.Info) -> String? {
+        guard let id = info.passwordID, let group = Keychain.sharedGroup else { return nil }
+        let password = Keychain.load(service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
+        Keychain.delete(service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
+        if password == nil { log.error("Passwort für \(info.name, privacy: .public) nicht im Schlüsselbund") }
+        return password
     }
 
     /// Blockweises Lesen vom Gerät für ``BlockSource``.

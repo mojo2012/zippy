@@ -134,7 +134,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
               replyHandler reply: @escaping (Int, (any Error)?) -> Void) {
         guard let item = item as? ZipItem else { return reply(0, POSIXError(.ENOENT)) }
         guard item.entry.kind == .file else { return reply(0, POSIXError(.EISDIR)) }
-        guard !item.entry.isEncrypted else { return reply(0, POSIXError(.EACCES)) }
+        guard !item.entry.isEncrypted || archive.password != nil else { return reply(0, POSIXError(.EACCES)) }
         do {
             let data = try archive.read(item.entry.id, offset: UInt64(max(0, offset)), length: min(length, buffer.length))
             _ = buffer.withUnsafeMutableBytes { data.copyBytes(to: $0) }

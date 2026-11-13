@@ -198,7 +198,7 @@ private func makeOperations() -> fuse_operations {
         guard let info, let entry = entry(path) else { return -ENOENT }
         guard entry.kind == .file else { return -EISDIR }
         guard info.pointee.flags & O_ACCMODE == O_RDONLY else { return -EROFS }
-        guard !entry.isEncrypted else { return -EACCES }
+        guard !entry.isEncrypted || currentVolume().archive.password != nil else { return -EACCES }
         info.pointee.fh = entry.id
         return 0
     }

@@ -19,9 +19,13 @@ enum ServeCommand {
         sigterm.setEventHandler { Darwin.unmount(mountPath, 0) }
         sigterm.resume()
 
+        // Passwort kommt über stdin (leer = keins). Die App schließt die Pipe danach.
+        let input = FileHandle.standardInput.readDataToEndOfFile()
+        let password = input.isEmpty ? nil : String(decoding: input, as: UTF8.self)
+
         let archive: ZipArchive
         do {
-            archive = try ZipArchive(url: URL(fileURLWithPath: archivePath))
+            archive = try ZipArchive(url: URL(fileURLWithPath: archivePath), password: password)
         } catch {
             report("ERROR \(error.localizedDescription)")
             exit(1)

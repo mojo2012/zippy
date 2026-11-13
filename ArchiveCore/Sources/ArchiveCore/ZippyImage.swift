@@ -10,27 +10,32 @@ import Foundation
 /// Trailer und liest daraus die echte ZIP-Länge und den Volumenamen.
 ///
 /// Trailer (Little Endian): Kennung "ZIPPYIMG" (8) · Version (4) · ZIP-Länge (8) ·
-/// Namenslänge (2) · Name UTF-8 · Nullen.
+/// Passwort-ID (16, Nullen = keine) · Namenslänge (2) · Name UTF-8 · Nullen.
+///
+/// Die Passwort-ID verweist auf einen Eintrag im gemeinsamen Schlüsselbund von App
+/// und Erweiterung. Das Passwort selbst steht nie im Image.
 public enum ZippyImage {
     public static let blockSize = 512
     /// Gesamtlänge ist ein Vielfaches davon, damit der Trailer auch bei Geräten
     /// mit 4096-Byte-Blöcken genau am Ende liegt.
     static let alignment = 4096
     static let magic = Array("ZIPPYIMG".utf8)
-    static let version: UInt32 = 1
-    static let headerLength = 8 + 4 + 8 + 2
+    static let version: UInt32 = 2
+    static let headerLength = 8 + 4 + 8 + 16 + 2
     static let maxNameLength = blockSize - headerLength
 
     public struct Info: Equatable, Sendable {
         public let zipLength: UInt64
         public let name: String
+        /// Schlüssel für das Passwort im gemeinsamen Schlüsselbund, falls nötig.
+        public let passwordID: UUID?
     }
 
     // MARK: Schreiben (App)
 
     /// Legt `image` aus `zip` an: APFS-Clone (kostet keinen Platz, sofern auf
     /// demselben Volume), Auffüllen, Trailer. Das Original bleibt unverändert.
-    public static func create(from zip: URL, at image: URL, name: String) throws {
+    public static func create(from zip: URL, at image: URL, name: String, passwordID: UUID? = nil) throws {
         try? FileManager.default.removeItem(at: image)
         try FileManager.default.copyItem(at: zip, to: image)   // nutzt clonefile() auf APFS
 
@@ -39,13 +44,17 @@ public enum ZippyImage {
         let zipLength = try handle.seekToEnd()
         let used = Int((zipLength + UInt64(blockSize)) % UInt64(alignment))
         let padding = (alignment - used) % alignment
-        try handle.write(contentsOf: Data(count: padding) + trailer(zipLength: zipLength, name: name))
+        try handle.write(contentsOf: Data(count: padding)
+                         + trailer(zipLength: zipLength, name: name, passwordID: passwordID))
     }
 
-    static func trailer(zipLength: UInt64, name: String) -> Data {
+    static func trailer(zipLength: UInt64, name: String, passwordID: UUID? = nil) -> Data {
         var block = Data(magic)
         withUnsafeBytes(of: version.littleEndian) { block.append(contentsOf: $0) }
         withUnsafeBytes(of: zipLength.littleEndian) { block.append(contentsOf: $0) }
+        withUnsafeBytes(of: (passwordID ?? UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))).uuid) {
+            block.append(contentsOf: $0)
+        }
         let nameBytes = truncatedUTF8(name, maxBytes: maxNameLength)
         withUnsafeBytes(of: UInt16(nameBytes.count).littleEndian) { block.append(contentsOf: $0) }
         block.append(contentsOf: nameBytes)
@@ -75,23 +84,28 @@ public enum ZippyImage {
         }
         guard integer(8, UInt32.self) == version else { return nil }
         let zipLength = integer(12, UInt64.self)
-        let nameLength = Int(integer(20, UInt16.self))
+        let idBytes = Array(bytes[20..<36])
+        let passwordID = idBytes.allSatisfy { $0 == 0 } ? nil : UUID(uuid: (
+            idBytes[0], idBytes[1], idBytes[2], idBytes[3], idBytes[4], idBytes[5], idBytes[6], idBytes[7],
+            idBytes[8], idBytes[9], idBytes[10], idBytes[11], idBytes[12], idBytes[13], idBytes[14], idBytes[15]))
+        let nameLength = Int(integer(36, UInt16.self))
         guard zipLength > 0, zipLength + UInt64(blockSize) <= deviceLength,
               nameLength <= maxNameLength else { return nil }
         let name = String(decoding: bytes[headerLength..<headerLength + nameLength], as: UTF8.self)
-        return Info(zipLength: zipLength, name: name)
+        return Info(zipLength: zipLength, name: name, passwordID: passwordID)
     }
 
     /// Öffnet ein Zippy-Image auf einem blockweise lesbaren Gerät.
     /// - Parameter readBlocks: liest ab blockausgerichtetem Offset in den Puffer
     public static func open(blockSize deviceBlockSize: Int, blockCount: UInt64, date: Date = Date(),
+                            password: String? = nil,
                             readBlocks: @escaping @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int)
         throws -> (archive: ZipArchive, info: Info) {
         guard let info = try readInfo(blockSize: deviceBlockSize, blockCount: blockCount, readBlocks: readBlocks) else {
             throw ArchiveError.openFailed("kein Zippy-Image")
         }
         let source = BlockSource(size: info.zipLength, blockSize: deviceBlockSize, readBlocks: readBlocks)
-        return (try ZipArchive(source: source, date: date), info)
+        return (try ZipArchive(source: source, date: date, password: password), info)
     }
 
     /// Liest nur den Trailer, z. B. zum Erkennen (Probe) eines Geräts.

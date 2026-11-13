@@ -63,6 +63,13 @@ import Testing
         #expect(try archive.read(b.id, offset: 123_457, length: 999) == big[123_457..<124_456])
     }
 
+    @Test func carriesPasswordIDButNoPassword() throws {
+        let id = UUID()
+        let block = ZippyImage.trailer(zipLength: 99, name: "x", passwordID: id)
+        #expect(ZippyImage.parse(lastBlock: block, deviceLength: 4096)?.passwordID == id)
+        #expect(ZippyImage.parse(lastBlock: ZippyImage.trailer(zipLength: 99, name: "x"), deviceLength: 4096)?.passwordID == nil)
+    }
+
     @Test func originalStaysUntouched() throws {
         let zip = try makeZip(files: ["x.txt": Data("x".utf8)])
         let before = try Data(contentsOf: zip)
