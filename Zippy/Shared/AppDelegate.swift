@@ -1,5 +1,6 @@
 import AppKit
 import os
+import UserNotifications
 
 let log = Logger(subsystem: "dev.zippy.Zippy", category: "app")
 
@@ -26,9 +27,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Vor application(_:open:), damit Reste keine Namen blockieren.
         mounter.cleanUp()
+        // Muss vor dem Ende des Starts stehen, sonst geht ein Klick auf eine Mitteilung verloren
+        UNUserNotificationCenter.current().delegate = self
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Durch Klick auf eine Mitteilung gestartet: das erledigt der Delegate unten.
+        if notification.userInfo?[NSApplication.launchUserNotificationUserInfoKey] != nil {
+            receivedFiles = true
+        }
         // Ohne Datei gestartet (z. B. Doppelklick auf die App): kurz erklären, beenden.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             guard !receivedFiles else { return }
@@ -40,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         receivedFiles = true
+        Notifier.requestPermission()   // für Meldungen beim Speichern nach dem Auswerfen
         if let missing = mounter.missingComponent {
             showMissing(missing)
             return quitIfDone()
@@ -113,5 +121,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if alert.runModal() == .alertFirstButtonReturn {
             NSWorkspace.shared.open(missing.downloadURL)
         }
+    }
+}
+
+// MARK: - Mitteilungen
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    /// Klick auf eine Mitteilung des Hilfsprozesses: Datei im Finder zeigen.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse) async {
+        let path = response.notification.request.content.userInfo[Notifier.revealKey] as? String
+        await MainActor.run {
+            receivedFiles = true
+            if let path { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+            quitIfDone()
+        }
+    }
+
+    /// Kommt eine Mitteilung, während Zippy läuft, trotzdem anzeigen.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification) async
+        -> UNNotificationPresentationOptions {
+        [.banner, .sound]
     }
 }

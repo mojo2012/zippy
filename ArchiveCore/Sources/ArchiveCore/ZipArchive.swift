@@ -8,6 +8,7 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
     case passwordRequired
     case wrongPassword
     case readFailed(String)
+    case writeFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -17,6 +18,7 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
         case .passwordRequired: "Das Archiv ist passwortgeschützt."
         case .wrongPassword: "Das Passwort ist falsch."
         case .readFailed(let reason): "Lesen fehlgeschlagen: \(reason)"
+        case .writeFailed(let reason): "Speichern fehlgeschlagen: \(reason)"
         }
     }
 }
@@ -119,16 +121,20 @@ public final class ZipArchive: @unchecked Sendable {
         let archive = reader.archive
         defer { reader.close() }
 
-        var header: OpaquePointer?
-        for _ in 0..<position {
-            guard archive_read_next_header(archive, &header) == ARCHIVE_OK else {
+        // ARCHIVE_WARN ist kein Fehler, z. B. wenn ein UTF-8-Name nicht in den
+        // Zeichensatz des Prozesses passt (Hilfsprozess läuft mit "C").
+        func nextHeader() throws {
+            var header: OpaquePointer?
+            let status = archive_read_next_header(archive, &header)
+            guard status == ARCHIVE_OK || status == ARCHIVE_WARN else {
                 throw ArchiveError.readFailed(Self.message(archive))
             }
+        }
+        for _ in 0..<position {
+            try nextHeader()
             archive_read_data_skip(archive)
         }
-        guard archive_read_next_header(archive, &header) == ARCHIVE_OK else {
-            throw ArchiveError.readFailed(Self.message(archive))
-        }
+        try nextHeader()
 
         guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
             throw ArchiveError.readFailed("Cache-Datei lässt sich nicht anlegen")
@@ -221,6 +227,14 @@ public final class ZipArchive: @unchecked Sendable {
     }
 }
 
+/// libarchive wandelt Namen über die Locale des Prozesses um. Apps und
+/// Kommandozeilenprogramme laufen ohne Einstellung mit "C": Dann scheitert jeder
+/// UTF-8-Name, libarchive meldet nur eine Warnung und liefert keinen Namen.
+/// Einmalig für den ganzen Prozess, Zippy hat sonst nichts Locale-Abhängiges.
+let utf8Locale: Void = {
+    setlocale(LC_CTYPE, "UTF-8")
+}()
+
 /// Ein offener libarchive-Lesevorgang über eine ``ArchiveSource``.
 /// Jeder Vorgang hat seine eigene Leseposition; die Quelle wird nur positionsbezogen gelesen.
 final class ArchiveReader {
@@ -237,6 +251,7 @@ final class ArchiveReader {
     }
 
     init(source: any ArchiveSource, password: String? = nil) throws {
+        _ = utf8Locale
         guard let archive = archive_read_new() else { throw ArchiveError.openFailed("libarchive") }
         self.archive = archive
         self.state = Unmanaged.passRetained(State(source: source))

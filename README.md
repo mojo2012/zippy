@@ -158,3 +158,27 @@ CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
   `project.yml`, dazu `keychain-access-groups` in beiden Entitlements). Im Image steht nur
   eine zufällige ID, die Erweiterung löscht den Eintrag nach dem Lesen. Braucht Team-ID;
   ohne lehnt die FSKit-Variante passwortgeschützte ZIPs mit einem Hinweis ab. Ungetestet.
+
+## Bearbeiten
+
+In der FUSE-Variante sind gemountete ZIPs beschreibbar: Dateien per Drag & Drop
+hinzufügen, löschen, umbenennen, verschieben, Ordner anlegen und Dateien ändern.
+
+- Änderungen sammelt `EditableArchive` (ArchiveCore). Neue und geänderte Dateien liegen
+  in einem Arbeitsordner, Löschen und Umbenennen ändern nur den Baum im Speicher.
+- Gespeichert wird erst beim Auswerfen: Der Hilfsprozess schreibt ein neues ZIP neben
+  das Original und ersetzt es dann. Nur Ansehen schreibt nichts.
+- Wurde das Original währenddessen von außen geändert, bleibt es stehen und die
+  Änderungen landen in „<Name> (bearbeitet).zip“.
+- `.DS_Store`, `._*`, `.TemporaryItems` usw. sind im Volume sichtbar, zählen aber nicht
+  als Änderung und kommen nicht ins ZIP. Erweiterte Attribute leben nur im Speicher.
+- Beim Speichern wird alles neu komprimiert (Deflate), Namen landen als UTF-8 in NFC.
+  Verschlüsselte Archive bleiben verschlüsselt, mit demselben Passwort, aber immer AES-256.
+- Nur lesbar bleibt ein ZIP, wenn Datei oder Ordner nicht beschreibbar sind oder
+  verschlüsselte Dateien ohne Passwort nicht umkopiert werden können.
+- Scheitert das Speichern, landet eine Kopie mit den Änderungen auf dem Schreibtisch und
+  eine Mitteilung erscheint (Klick zeigt die Datei im Finder; sind Mitteilungen aus, ein
+  Dialog). Das gilt auch, wenn das Original zwischendurch geändert wurde. Details im Log:
+  `log show --info --predicate 'subsystem == "dev.zippy.Zippy"'`.
+- Grenzen: Ein ZIP-Kommentar geht verloren. Stürzt der Hilfsprozess ab, sind die
+  Änderungen weg. Die FSKit-Variante ist weiterhin nur lesbar.

@@ -29,6 +29,7 @@
 		7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044D18ABD9F753D382FF376C /* ZipVolume.swift */; };
 		8932D3E3E15F6B839F396E85 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E784A9F039C544F1A1FF5E /* Main.swift */; };
 		8E011E8C10FB05814EEB6E42 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
+		8E349D63616599FA2F401DBB /* Notifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE85C9CF2C3F0A11CB22FB9 /* Notifier.swift */; };
 		90488ED60E7F25ADABA99943 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
 		918AF1533A6CCC7DF862D684 /* ArchiveCore in Frameworks */ = {isa = PBXBuildFile; productRef = D79D2B949130B681C49726BF /* ArchiveCore */; };
 		94C9B9AE17B66E3762B5C076 /* ArchiveMounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */; };
@@ -37,6 +38,7 @@
 		BE35E51D5E5F6A3D996814CC /* PasswordPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */; };
 		BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5CDD37872C6CFDE26ABBE /* ServeCommand.swift */; };
 		C1CB94650320AB08A2D840FA /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
+		C700CF4B1D60707F93367BDB /* Notifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE85C9CF2C3F0A11CB22FB9 /* Notifier.swift */; };
 		D4632882F8A6C7FDCE7E72B4 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
 		E16FB8CF5AD481D39F2F185D /* FuseMount in Frameworks */ = {isa = PBXBuildFile; productRef = 784498770D3D70474D8F94EF /* FuseMount */; };
 		EFAC3F2F7F81A8E13811F70D /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
@@ -71,6 +73,7 @@
 		044D18ABD9F753D382FF376C /* ZipVolume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipVolume.swift; sourceTree = "<group>"; };
 		18063B0E71113506684EE860 /* Variant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Variant.swift; sourceTree = "<group>"; };
 		1BEA0A6FDA039F3153485F24 /* tgz.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = tgz.icns; sourceTree = "<group>"; };
+		2FE85C9CF2C3F0A11CB22FB9 /* Notifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifier.swift; sourceTree = "<group>"; };
 		36A5E9E2EF44670094F44A3D /* ZippyFS.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = ZippyFS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		406727D45866C92CD7B3725C /* FSKitMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSKitMounter.swift; sourceTree = "<group>"; };
@@ -222,6 +225,7 @@
 				D4DDA2ABCB89115F6DAECC22 /* ArchiveMounting.swift */,
 				EF23B083DB365069FDEBAB2F /* Keychain.swift */,
 				C7E784A9F039C544F1A1FF5E /* Main.swift */,
+				2FE85C9CF2C3F0A11CB22FB9 /* Notifier.swift */,
 				D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */,
 			);
 			path = Shared;
@@ -388,6 +392,7 @@
 				36B311D4E1AE09B29EE4EBB2 /* FuseHelperMounter.swift in Sources */,
 				5AF05218730660B33A6FCBB3 /* Keychain.swift in Sources */,
 				47D0BF9335E35B560014FAE8 /* Main.swift in Sources */,
+				C700CF4B1D60707F93367BDB /* Notifier.swift in Sources */,
 				14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */,
 				BE9B71AF3015306F729C1687 /* ServeCommand.swift in Sources */,
 				0CE3BE9F09037A22514AB56B /* Variant.swift in Sources */,
@@ -403,6 +408,7 @@
 				060E576101F16131299BE59E /* FSKitMounter.swift in Sources */,
 				3D27799EAFECAC64B213EED3 /* Keychain.swift in Sources */,
 				8932D3E3E15F6B839F396E85 /* Main.swift in Sources */,
+				8E349D63616599FA2F401DBB /* Notifier.swift in Sources */,
 				BE35E51D5E5F6A3D996814CC /* PasswordPrompt.swift in Sources */,
 				7278BFB7B11497996F60EC9E /* Variant.swift in Sources */,
 			);

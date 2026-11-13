@@ -17,14 +17,15 @@ public enum FuseError: Error, LocalizedError {
     }
 }
 
-/// Ein über FUSE-T gemountetes Archiv, nur lesbar.
+/// Ein über FUSE-T gemountetes Archiv. Beschreibbar, außer ``EditableArchive/isReadOnly``;
+/// Änderungen sammelt ``EditableArchive``, gespeichert wird nach dem Aushängen.
 ///
 /// ``serve(_:name:at:ready:)`` mountet und beantwortet Anfragen **im aufrufenden
 /// Thread**, bis das Volume ausgehängt wird (z. B. Auswerfen im Finder). So erwartet
 /// es FUSE-T: Mounten und Schleife im selben Thread, ein Volume pro Prozess. Mit
 /// mehreren Volumes in Hintergrund-Threads eines Prozesses blieb das Aushängen hängen.
 public final class FuseVolume: @unchecked Sendable {
-    public let archive: ZipArchive
+    public let files: EditableArchive
     public let name: String
     public let mountPoint: URL
     /// Inhalt von `/.VolumeIcon.icns`, das Zippy zusätzlich ins Volume legt.
@@ -33,20 +34,21 @@ public final class FuseVolume: @unchecked Sendable {
     fileprivate let uid = getuid()
     fileprivate let gid = getgid()
 
-    private init(archive: ZipArchive, name: String, mountPoint: URL, volumeIcon: Data?) {
-        self.archive = archive
+    private init(files: EditableArchive, name: String, mountPoint: URL, volumeIcon: Data?) {
+        self.files = files
         self.name = name
         self.mountPoint = mountPoint
         // Liegt im Archiv selbst schon eine, gewinnt die aus dem Archiv.
-        self.volumeIcon = archive.index.lookup(path: VolumeIcon.path) == nil ? volumeIcon : nil
+        self.volumeIcon = files.node(at: VolumeIcon.path) == nil ? volumeIcon : nil
     }
 
-    /// Mountet und blockiert, bis das Volume ausgehängt ist.
+    /// Mountet und blockiert, bis das Volume ausgehängt ist. Speichern und Schließen
+    /// von `files` ist danach Sache des Aufrufers.
     ///
     /// `ready` wird aus einem Hintergrund-Thread genau einmal aufgerufen: mit `nil`,
     /// sobald das Volume in der Mount-Tabelle steht, sonst mit dem Fehler.
     /// `volumeIcon` (eine .icns-Datei) wird zum Symbol des Volumes.
-    public static func serve(_ archive: ZipArchive, name: String, at mountPoint: URL, backend: FuseBackend,
+    public static func serve(_ files: EditableArchive, name: String, at mountPoint: URL, backend: FuseBackend,
                              volumeIcon: URL? = nil,
                              ready: @escaping @Sendable ((any Error)?) -> Void) {
         guard zf_load(backend.libraryPath) == 0 else {
@@ -58,13 +60,14 @@ public final class FuseVolume: @unchecked Sendable {
             return ready(error)
         }
 
-        let volume = FuseVolume(archive: archive, name: name, mountPoint: mountPoint,
+        let volume = FuseVolume(files: files, name: name, mountPoint: mountPoint,
                                 volumeIcon: volumeIcon.flatMap { try? Data(contentsOf: $0) })
         var ops = makeOperations()
         // Kein eigenes "location": Der Servername muss auflösbar sein (FUSE-T trägt
         // "fuse-t" in /etc/hosts ein), sonst wird daraus "localhost". Darum stehen alle
         // Volumes in der Finder-Seitenleiste unter dem Server "fuse-t".
-        let options = "volname=\(name.replacingOccurrences(of: ",", with: " ")),rdonly" + backend.extraOptions
+        let options = "volname=\(name.replacingOccurrences(of: ",", with: " "))"
+            + (files.isReadOnly ? ",rdonly" : "") + backend.extraOptions
         let userData = Unmanaged.passUnretained(volume).toOpaque()
         guard let rawHandle = zf_mount_new(mountPoint.path, options, &ops, userData) else {
             try? FileManager.default.removeItem(at: mountPoint)
@@ -96,7 +99,6 @@ public final class FuseVolume: @unchecked Sendable {
         ejectWatcher?.detachDevice()
         ejectWatcher = nil
         withExtendedLifetime(volume) {}
-        archive.close()
         try? FileManager.default.removeItem(at: mountPoint)
     }
 
@@ -181,9 +183,28 @@ private func currentVolume() -> FuseVolume {
     Unmanaged<FuseVolume>.fromOpaque(zf_private_data()!).takeUnretainedValue()
 }
 
-private func entry(_ path: UnsafePointer<CChar>?) -> ArchiveEntry? {
+private func string(_ path: UnsafePointer<CChar>?) -> String {
+    path.map { String(cString: $0) } ?? ""
+}
+
+private func node(_ path: UnsafePointer<CChar>?) -> EditableArchive.Node? {
     guard let path else { return nil }
-    return currentVolume().archive.index.lookup(path: String(cString: path))
+    return currentVolume().files.node(at: String(cString: path))
+}
+
+/// Führt eine Änderung aus und übersetzt Fehler in negative errno-Werte.
+private func perform(_ body: () throws -> Void) -> Int32 {
+    do {
+        try body()
+        return 0
+    } catch let error as POSIXError {
+        return -error.code.rawValue
+    } catch ArchiveError.passwordRequired, ArchiveError.wrongPassword {
+        return -EACCES
+    } catch {
+        log.error("\(error.localizedDescription, privacy: .public)")
+        return -EIO
+    }
 }
 
 private func timespec(_ date: Date) -> timespec {
@@ -191,60 +212,82 @@ private func timespec(_ date: Date) -> timespec {
     return Darwin.timespec(tv_sec: Int(seconds), tv_nsec: Int((date.timeIntervalSince1970 - seconds) * 1e9))
 }
 
-private func fill(_ st: UnsafeMutablePointer<stat>, with entry: ArchiveEntry, volume: FuseVolume) {
+private func date(_ time: Darwin.timespec) -> Date {
+    Date(timeIntervalSince1970: TimeInterval(time.tv_sec) + TimeInterval(time.tv_nsec) / 1e9)
+}
+
+private func fill(_ st: UnsafeMutablePointer<stat>, with node: EditableArchive.Node, volume: FuseVolume) {
     st.pointee = stat()
-    let type: mode_t = switch entry.kind {
+    let type: mode_t = switch node.kind {
     case .directory: S_IFDIR
     case .symlink: S_IFLNK
     case .file: S_IFREG
     }
-    st.pointee.st_mode = type | mode_t(entry.permissions & 0o555)   // nur lesbar
-    st.pointee.st_nlink = entry.isDirectory ? 2 : 1
+    let permissions = mode_t(node.permissions)
+    st.pointee.st_mode = type | (volume.files.isReadOnly ? permissions & 0o555 : permissions)
+    st.pointee.st_nlink = node.isDirectory ? 2 : 1
     st.pointee.st_uid = volume.uid
     st.pointee.st_gid = volume.gid
-    let size = entry.kind == .symlink ? UInt64(entry.symlinkTarget?.utf8.count ?? 0) : entry.size
-    st.pointee.st_size = off_t(size)
+    st.pointee.st_size = off_t(node.size)
     st.pointee.st_blksize = 4096
-    st.pointee.st_blocks = blkcnt_t((size + 511) / 512)
-    st.pointee.st_ino = ino_t(entry.id)
-    let time = timespec(entry.modificationDate)
+    st.pointee.st_blocks = blkcnt_t((node.size + 511) / 512)
+    st.pointee.st_ino = ino_t(node.id)
+    let time = timespec(node.modificationDate)
     st.pointee.st_mtimespec = time
     st.pointee.st_ctimespec = time
     st.pointee.st_atimespec = time
     st.pointee.st_birthtimespec = time
 }
 
+private func fillIcon(_ st: UnsafeMutablePointer<stat>, volume: FuseVolume) {
+    let size = UInt64(volume.volumeIcon?.count ?? 0)
+    st.pointee = stat()
+    st.pointee.st_mode = S_IFREG | 0o444
+    st.pointee.st_nlink = 1
+    st.pointee.st_uid = volume.uid
+    st.pointee.st_gid = volume.gid
+    st.pointee.st_size = off_t(size)
+    st.pointee.st_blksize = 4096
+    st.pointee.st_blocks = blkcnt_t((size + 511) / 512)
+    st.pointee.st_ino = ino_t(VolumeIcon.id)
+}
+
 private func makeOperations() -> fuse_operations {
     var ops = fuse_operations()
+
+    // MARK: Lesen
 
     ops.getattr = { path, st in
         guard let st else { return -EIO }
         if VolumeIcon.isIcon(path) {
-            let volume = currentVolume()
-            let size = UInt64(volume.volumeIcon?.count ?? 0)
-            st.pointee = stat()
-            st.pointee.st_mode = S_IFREG | 0o444
-            st.pointee.st_nlink = 1
-            st.pointee.st_uid = volume.uid
-            st.pointee.st_gid = volume.gid
-            st.pointee.st_size = off_t(size)
-            st.pointee.st_blksize = 4096
-            st.pointee.st_blocks = blkcnt_t((size + 511) / 512)
-            st.pointee.st_ino = ino_t(VolumeIcon.id)
+            fillIcon(st, volume: currentVolume())
             return 0
         }
-        guard let entry = entry(path) else { return -ENOENT }
-        fill(st, with: entry, volume: currentVolume())
+        guard let node = node(path) else { return -ENOENT }
+        fill(st, with: node, volume: currentVolume())
+        return 0
+    }
+
+    ops.fgetattr = { path, st, info in
+        guard let st, let info else { return -EIO }
+        let volume = currentVolume()
+        if info.pointee.fh == VolumeIcon.id {
+            fillIcon(st, volume: volume)
+            return 0
+        }
+        // Über das Handle, damit auch gelöschte, noch offene Dateien gehen
+        guard let node = volume.files.node(info.pointee.fh) else { return -ENOENT }
+        fill(st, with: node, volume: volume)
         return 0
     }
 
     ops.readdir = { path, buffer, filler, _, _ in
-        guard let filler, let directory = entry(path) else { return -ENOENT }
+        guard let filler, let directory = node(path) else { return -ENOENT }
         guard directory.isDirectory else { return -ENOTDIR }
         _ = filler(buffer, ".", nil, 0)
         _ = filler(buffer, "..", nil, 0)
         if VolumeIcon.isRoot(path) { _ = filler(buffer, VolumeIcon.name, nil, 0) }
-        for child in currentVolume().archive.index.children(of: directory.id) {
+        for child in currentVolume().files.children(of: directory.id) {
             if filler(buffer, child.name, nil, 0) != 0 { break }
         }
         return 0
@@ -252,69 +295,197 @@ private func makeOperations() -> fuse_operations {
 
     ops.open = { path, info in
         guard let info else { return -EIO }
+        let volume = currentVolume()
+        let writing = info.pointee.flags & O_ACCMODE != O_RDONLY
         if VolumeIcon.isIcon(path) {
-            guard info.pointee.flags & O_ACCMODE == O_RDONLY else { return -EROFS }
+            guard !writing else { return -EACCES }
             info.pointee.fh = VolumeIcon.id
             return 0
         }
-        guard let entry = entry(path) else { return -ENOENT }
-        guard entry.kind == .file else { return -EISDIR }
-        guard info.pointee.flags & O_ACCMODE == O_RDONLY else { return -EROFS }
-        guard !entry.isEncrypted || currentVolume().archive.password != nil else { return -EACCES }
-        info.pointee.fh = entry.id
+        guard let node = node(path) else { return -ENOENT }
+        guard node.kind == .file else { return -EISDIR }
+        if writing && volume.files.isReadOnly { return -EROFS }
+        guard !node.isEncrypted || volume.files.archive.password != nil else { return -EACCES }
+        info.pointee.fh = node.id
+        if info.pointee.flags & O_TRUNC != 0 {
+            return perform { try volume.files.truncate(node.id, to: 0) }
+        }
         return 0
     }
 
     ops.read = { _, buffer, size, offset, info in
-        guard let buffer, let info else { return -EIO }
+        guard let buffer, let info, offset >= 0 else { return -EIO }
+        let volume = currentVolume()
         if info.pointee.fh == VolumeIcon.id {
-            guard let icon = currentVolume().volumeIcon, offset >= 0 else { return -EIO }
+            guard let icon = volume.volumeIcon else { return -EIO }
             let start = min(Int(offset), icon.count), end = min(start + size, icon.count)
             icon.copyBytes(to: UnsafeMutableRawPointer(buffer).assumingMemoryBound(to: UInt8.self),
                            from: start..<end)
             return Int32(end - start)
         }
         do {
-            let data = try currentVolume().archive.read(info.pointee.fh, offset: UInt64(offset), length: size)
+            let data = try volume.files.read(info.pointee.fh, offset: UInt64(offset), length: size)
             data.copyBytes(to: UnsafeMutableRawPointer(buffer).assumingMemoryBound(to: UInt8.self), count: data.count)
             return Int32(data.count)
         } catch {
-            return -EIO
+            return perform { throw error }
         }
     }
 
     ops.readlink = { path, buffer, size in
-        guard let buffer, size > 0, let entry = entry(path) else { return -ENOENT }
-        guard entry.kind == .symlink, let target = entry.symlinkTarget else { return -EINVAL }
+        guard let buffer, size > 0, let node = node(path) else { return -ENOENT }
+        guard node.kind == .symlink, let target = node.symlinkTarget else { return -EINVAL }
         let bytes = Array(target.utf8.prefix(size - 1))
         for (i, byte) in bytes.enumerated() { buffer[i] = CChar(bitPattern: byte) }
         buffer[bytes.count] = 0
         return 0
     }
 
-    ops.listxattr = { path, buffer, size in
-        guard VolumeIcon.isRoot(path) else { return 0 }
-        return reply(Array(VolumeIcon.finderInfoName.utf8) + [0], into: buffer, size: size)
-    }
-
-    ops.getxattr = { path, name, buffer, size, _ in
-        guard VolumeIcon.isRoot(path), let name, String(cString: name) == VolumeIcon.finderInfoName else {
-            return -ENOATTR
-        }
-        return reply(VolumeIcon.finderInfo, into: buffer, size: size)
-    }
-
     ops.statfs = { _, st in
         guard let st else { return -EIO }
-        let entries = currentVolume().archive.index.entries.values
-        let total = entries.reduce(UInt64(0)) { $0 + $1.size }
+        let files = currentVolume().files
+        let entries = files.archive.index.entries.values
+        let used = entries.reduce(UInt64(0)) { $0 + $1.size }
+        // Freier Platz: der des Arbeitsordners (dort landen neue Dateien zuerst).
+        // Ohne Angabe lehnt der Finder das Kopieren ab.
+        var free: UInt64 = 0
+        if !files.isReadOnly,
+           let bytes = try? FileManager.default.attributesOfFileSystem(forPath: NSTemporaryDirectory())[.systemFreeSize]
+               as? NSNumber {
+            free = bytes.uint64Value / 4096
+        }
         st.pointee = statvfs()
         st.pointee.f_bsize = 4096
         st.pointee.f_frsize = 4096
-        st.pointee.f_blocks = fsblkcnt_t((total + 4095) / 4096)
-        st.pointee.f_files = fsfilcnt_t(entries.count)
+        st.pointee.f_blocks = fsblkcnt_t((used + 4095) / 4096 + free)
+        st.pointee.f_bfree = fsblkcnt_t(free)
+        st.pointee.f_bavail = fsblkcnt_t(free)
+        st.pointee.f_files = fsfilcnt_t(entries.count) + (files.isReadOnly ? 0 : 1_000_000)
+        st.pointee.f_ffree = files.isReadOnly ? 0 : 1_000_000
+        st.pointee.f_favail = st.pointee.f_ffree
         st.pointee.f_namemax = 255
         return 0
+    }
+
+    // MARK: Schreiben
+
+    ops.create = { path, mode, info in
+        guard let info else { return -EIO }
+        return perform {
+            let node = try currentVolume().files.createFile(at: string(path), permissions: UInt16(mode & 0o777))
+            info.pointee.fh = node.id
+        }
+    }
+
+    ops.mknod = { path, mode, _ in
+        guard mode & S_IFMT == S_IFREG else { return -EPERM }
+        return perform { try currentVolume().files.createFile(at: string(path), permissions: UInt16(mode & 0o777)) }
+    }
+
+    ops.write = { _, buffer, size, offset, info in
+        guard let buffer, let info, offset >= 0 else { return -EIO }
+        if info.pointee.fh == VolumeIcon.id { return -EACCES }
+        var written = 0
+        let status = perform {
+            written = try currentVolume().files.write(info.pointee.fh, bytes: UnsafeRawBufferPointer(start: buffer, count: size),
+                                                      at: UInt64(offset))
+        }
+        return status == 0 ? Int32(written) : status
+    }
+
+    ops.truncate = { path, size in
+        guard let node = node(path) else { return -ENOENT }
+        return perform { try currentVolume().files.truncate(node.id, to: UInt64(max(0, size))) }
+    }
+
+    ops.ftruncate = { _, size, info in
+        guard let info else { return -EIO }
+        return perform { try currentVolume().files.truncate(info.pointee.fh, to: UInt64(max(0, size))) }
+    }
+
+    ops.mkdir = { path, mode in
+        perform { try currentVolume().files.createDirectory(at: string(path), permissions: UInt16(mode & 0o777)) }
+    }
+
+    ops.unlink = { path in
+        if VolumeIcon.isIcon(path) { return -EACCES }
+        return perform { try currentVolume().files.removeFile(at: string(path)) }
+    }
+
+    ops.rmdir = { path in
+        perform { try currentVolume().files.removeDirectory(at: string(path)) }
+    }
+
+    ops.rename = { from, to in
+        if VolumeIcon.isIcon(from) || VolumeIcon.isIcon(to) { return -EACCES }
+        return perform { try currentVolume().files.move(from: string(from), to: string(to)) }
+    }
+
+    ops.symlink = { target, path in
+        perform { try currentVolume().files.createSymlink(at: string(path), target: string(target)) }
+    }
+
+    ops.chmod = { path, mode in
+        if VolumeIcon.isIcon(path) { return 0 }
+        guard let node = node(path) else { return -ENOENT }
+        return perform { try currentVolume().files.setPermissions(node.id, to: UInt16(mode & 0o777)) }
+    }
+
+    // Besitzer gibt es im ZIP nicht: annehmen und ignorieren, sonst scheitert das Kopieren
+    ops.chown = { path, _, _ in
+        VolumeIcon.isIcon(path) || node(path) != nil ? 0 : -ENOENT
+    }
+
+    ops.utimens = { path, times in
+        if VolumeIcon.isIcon(path) { return 0 }
+        guard let node = node(path) else { return -ENOENT }
+        let modification = times.map { $0[1] } ?? Darwin.timespec(tv_sec: 0, tv_nsec: Int(UTIME_NOW))
+        if modification.tv_nsec == Int(UTIME_OMIT) { return 0 }
+        let newDate = modification.tv_nsec == Int(UTIME_NOW) ? Date() : date(modification)
+        return perform { try currentVolume().files.setModificationDate(node.id, to: newDate) }
+    }
+
+    ops.flush = { _, _ in 0 }
+    ops.release = { _, _ in 0 }
+    ops.fsync = { _, _, _ in 0 }
+
+    // MARK: Erweiterte Attribute
+    // Nur im Speicher: ZIP kennt sie nicht. Der Finder setzt beim Kopieren welche
+    // (z. B. com.apple.quarantine) und bricht ab, wenn das scheitert.
+
+    ops.listxattr = { path, buffer, size in
+        guard let node = node(path) else { return VolumeIcon.isIcon(path) ? 0 : -ENOENT }
+        var names = currentVolume().files.extendedAttributeNames(of: node.id)
+        if VolumeIcon.isRoot(path), !names.contains(VolumeIcon.finderInfoName) { names.append(VolumeIcon.finderInfoName) }
+        return reply(names.flatMap { Array($0.utf8) + [0] }, into: buffer, size: size)
+    }
+
+    ops.getxattr = { path, name, buffer, size, _ in
+        guard let name else { return -EINVAL }
+        let attribute = String(cString: name)
+        if VolumeIcon.isRoot(path), attribute == VolumeIcon.finderInfoName {
+            return reply(VolumeIcon.finderInfo, into: buffer, size: size)
+        }
+        guard let node = node(path),
+              let value = currentVolume().files.extendedAttribute(attribute, of: node.id) else { return -ENOATTR }
+        return reply(Array(value), into: buffer, size: size)
+    }
+
+    ops.setxattr = { path, name, value, size, _, _ in
+        guard let name else { return -EINVAL }
+        if VolumeIcon.isIcon(path) || VolumeIcon.isRoot(path) && String(cString: name) == VolumeIcon.finderInfoName {
+            return 0   // Symbol-Markierung bleibt unsere
+        }
+        guard let node = node(path) else { return -ENOENT }
+        let data = value.map { Data(bytes: $0, count: size) } ?? Data()
+        return perform { try currentVolume().files.setExtendedAttribute(String(cString: name), to: data, of: node.id) }
+    }
+
+    ops.removexattr = { path, name in
+        guard let name, let node = node(path) else { return -ENOENT }
+        let attribute = String(cString: name)
+        guard currentVolume().files.extendedAttribute(attribute, of: node.id) != nil else { return -ENOATTR }
+        return perform { try currentVolume().files.setExtendedAttribute(attribute, to: nil, of: node.id) }
     }
 
     return ops
