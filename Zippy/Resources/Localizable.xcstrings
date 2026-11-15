@@ -1,6 +1,310 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "“%@” is open as a drive." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist gerade als Laufwerk geöffnet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is open as a drive."
+          }
+        }
+      }
+    },
+    "“%@” is now protected with a password." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist jetzt mit einem Passwort geschützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is now protected with a password."
+          }
+        }
+      }
+    },
+    "“%@” has nothing to encrypt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ enthält nichts, was sich verschlüsseln ließe."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” has nothing to encrypt."
+          }
+        }
+      }
+    },
+    "“%@” has no password." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ hat kein Passwort."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” has no password."
+          }
+        }
+      }
+    },
+    "A ZIP password protects only file contents. Folders and empty files stay readable." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein ZIP-Passwort schützt nur Dateiinhalte. Ordner und leere Dateien bleiben lesbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A ZIP password protects only file contents. Folders and empty files stay readable."
+          }
+        }
+      }
+    },
+    "Eject it first, then try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wirf es zuerst aus und versuche es dann erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eject it first, then try again."
+          }
+        }
+      }
+    },
+    "New password" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neues Passwort"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New password"
+          }
+        }
+      }
+    },
+    "New password for “%@”" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neues Passwort für „%@“"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New password for “%@”"
+          }
+        }
+      }
+    },
+    "Repeat password" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwort wiederholen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat password"
+          }
+        }
+      }
+    },
+    "Set Password" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwort festlegen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Password"
+          }
+        }
+      }
+    },
+    "The archive is encrypted with AES-256. Without the password, nobody can open the files, not even you." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Archiv wird mit AES-256 verschlüsselt. Ohne das Passwort kann niemand die Dateien öffnen, auch du nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The archive is encrypted with AES-256. Without the password, nobody can open the files, not even you."
+          }
+        }
+      }
+    },
+    "The password must not be empty." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Passwort darf nicht leer sein."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The password must not be empty."
+          }
+        }
+      }
+    },
+    "The password of “%@” couldn’t be changed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Passwort von „%@“ ließ sich nicht ändern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The password of “%@” couldn’t be changed."
+          }
+        }
+      }
+    },
+    "The password of “%@” was removed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Passwort von „%@“ ist entfernt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The password of “%@” was removed."
+          }
+        }
+      }
+    },
+    "The passwords don’t match. Please try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Passwörter stimmen nicht überein. Bitte erneut versuchen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The passwords don’t match. Please try again."
+          }
+        }
+      }
+    },
+    "Zippy can only add a password to ZIP archives." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Passwort kann Zippy nur ZIP-Archiven geben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy can only add a password to ZIP archives."
+          }
+        }
+      }
+    },
+    "Zippy can remove passwords from ZIP and 7z archives." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwörter entfernen kann Zippy bei ZIP- und 7z-Archiven."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy can remove passwords from ZIP and 7z archives."
+          }
+        }
+      }
+    },
+    "Zippy can’t protect “%@” with a password." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy kann „%@“ nicht mit einem Passwort schützen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy can’t protect “%@” with a password."
+          }
+        }
+      }
+    },
+    "Zippy can’t remove the password from “%@”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy kann das Passwort von „%@“ nicht entfernen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy can’t remove the password from “%@”."
+          }
+        }
+      }
+    },
     "“%@” can’t be opened." : {
       "localizations" : {
         "de" : {

@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ archives can’t be saved with a password": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-Archive lassen sich nicht mit Passwort speichern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ archives can’t be saved with a password"
+          }
+        }
+      }
+    },
     "Entry is not a file.": {
       "localizations": {
         "de": {

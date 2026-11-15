@@ -331,11 +331,12 @@ public final class EditableArchive: @unchecked Sendable {
     /// außen geändert, bleibt es stehen und die Änderungen landen in einer Kopie
     /// "<Name> (bearbeitet).zip". Gibt zurück, wohin gespeichert wurde.
     @discardableResult
-    public func saveReplacing(_ original: URL, ifUnchangedSince stamp: FileStamp) throws -> URL {
+    public func saveReplacing(_ original: URL, ifUnchangedSince stamp: FileStamp,
+                              encryption: Encryption = .keep) throws -> URL {
         let directory = original.deletingLastPathComponent()
         let temporary = directory.appendingPathComponent(".\(original.lastPathComponent).zippy-\(UUID().uuidString.prefix(8))")
         do {
-            try save(to: temporary)
+            try save(to: temporary, encryption: encryption)
             if (try? FileStamp(of: original)) == stamp {
                 _ = try FileManager.default.replaceItemAt(original, withItemAt: temporary)
                 return original
@@ -372,13 +373,29 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
+    /// Verschlüsselung beim Speichern.
+    public enum Encryption: Sendable, Equatable {
+        /// Wie das Original: verschlüsselt mit demselben Passwort, sonst nicht.
+        case keep
+        /// Mit diesem Passwort verschlüsseln (nur ZIP, AES-256).
+        case set(String)
+        /// Unverschlüsselt speichern.
+        case remove
+    }
+
     /// Schreibt den aktuellen Stand im Format des Originals nach `destination`:
     /// ZIP bleibt ZIP, TAR bleibt TAR mit derselben Kompression, 7z bleibt 7z (LZMA2).
     ///
     /// Alles wird neu komprimiert (libarchive kann komprimierte Daten nicht direkt
     /// übernehmen). Unveränderte Dateien werden dafür in Archivreihenfolge gelesen.
-    /// War ein ZIP verschlüsselt, wird mit demselben Passwort per AES-256 verschlüsselt.
-    public func save(to destination: URL) throws {
+    /// Verschlüsselt wird immer per AES-256, und nur ZIP: libarchive kann 7z nur
+    /// entschlüsseln. Ein verschlüsseltes 7z lässt sich darum nur mit `.remove` speichern.
+    public func save(to destination: URL, encryption: Encryption = .keep) throws {
+        let password: String? = switch encryption {
+        case .keep: archive.needsPassword ? archive.password : nil
+        case .set(let password): password
+        case .remove: nil
+        }
         try lock.withLock {
             _ = utf8Locale
             guard let writer = archive_write_new() else { throw ArchiveError.writeFailed("libarchive") }
@@ -387,12 +404,15 @@ public final class EditableArchive: @unchecked Sendable {
             switch archive.format {
             case .zip:
                 status = archive_write_set_format_zip(writer)
-                if status == ARCHIVE_OK, archive.needsPassword, let password = archive.password {
+                if status == ARCHIVE_OK, let password {
                     status = archive_write_set_options(writer, "zip:encryption=aes256")
                     if status == ARCHIVE_OK {
                         status = archive_write_set_passphrase(writer, password.precomposedStringWithCanonicalMapping)
                     }
                 }
+            case .tar where password != nil, .sevenZip where password != nil:
+                throw ArchiveError.writeFailed(
+                    String(localized: "\(archive.format.displayName) archives can’t be saved with a password", bundle: .module))
             case .tar(let compression):
                 // pax: lange Namen, UTF-8, Nanosekunden; ohne pax-Erweiterungen, wo nicht nötig
                 status = archive_write_set_format_pax_restricted(writer)

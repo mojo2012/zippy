@@ -92,6 +92,15 @@ public final class Archive: @unchecked Sendable {
         format.isWritable && parts.isEmpty && !(format == .sevenZip && needsPassword)
     }
 
+    /// Kann Zippy ein Passwort setzen oder ändern? Nur bei ZIP (AES-256).
+    public var canSetPassword: Bool { format == .zip && parts.isEmpty }
+
+    /// Kann Zippy das Passwort entfernen? Bei ZIP und 7z, die Zippy entschlüsseln und
+    /// unverschlüsselt neu schreiben kann.
+    public var canRemovePassword: Bool {
+        (format == .zip || format == .sevenZip) && parts.isEmpty && needsPassword
+    }
+
     private let cacheDirectory: URL
     private let lock = NSLock()
     private var extracted: [UInt64: URL] = [:]

@@ -79,4 +79,38 @@ enum PasswordPrompt {
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         return (field.stringValue, remember.state == .on)
     }
+
+    /// Neues Passwort, zweimal eingegeben. `nil` bei Abbruch.
+    static func askNewPassword(archive: URL) -> String? {
+        var problem: String?
+        while true {
+            NSApp.activate()
+            let alert = NSAlert()
+            alert.messageText = String(localized: "New password for “\(archive.lastPathComponent)”")
+            alert.informativeText = problem ?? String(localized: "The archive is encrypted with AES-256. Without the password, nobody can open the files, not even you.")
+            if problem != nil { alert.alertStyle = .warning }
+            alert.addButton(withTitle: String(localized: "Set Password"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+
+            let first = NSSecureTextField(frame: NSRect(x: 0, y: 30, width: 260, height: 24))
+            first.placeholderString = String(localized: "New password")
+            let second = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+            second.placeholderString = String(localized: "Repeat password")
+            let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+            accessory.addSubview(first)
+            accessory.addSubview(second)
+            first.nextKeyView = second
+            alert.accessoryView = accessory
+            alert.window.initialFirstResponder = first
+
+            guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+            if first.stringValue.isEmpty {
+                problem = String(localized: "The password must not be empty.")
+            } else if first.stringValue != second.stringValue {
+                problem = String(localized: "The passwords don’t match. Please try again.")
+            } else {
+                return first.stringValue
+            }
+        }
+    }
 }

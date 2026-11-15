@@ -42,6 +42,18 @@ targets:
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true              # kein Dock-Symbol, kein Menü
         NSPrincipalClass: NSApplication
+        # Finder: Rechtsklick → Dienste. Texte übersetzt in Zippy/Resources/ServicesMenu.xcstrings
+        NSServices:
+          - NSMenuItem: {default: "Set Password with Zippy…"}
+            NSMessage: setPassword
+            NSPortName: Zippy
+            NSRequiredContext: {}
+            NSSendFileTypes: [public.zip-archive, com.pkware.zip-archive]
+          - NSMenuItem: {default: "Remove Password with Zippy"}
+            NSMessage: removePassword
+            NSPortName: Zippy
+            NSRequiredContext: {}
+            NSSendFileTypes: [public.zip-archive, com.pkware.zip-archive, org.7-zip.7-zip-archive]
         CFBundleDocumentTypes:
           - CFBundleTypeName: ZIP-Archiv
             CFBundleTypeRole: Viewer
@@ -97,6 +109,7 @@ targets:
       path: Zippy/Info-FSKit.plist
       properties:
         <<: *appInfo
+        NSServices: []                 # Finder-Dienste nur in der FUSE-Variante, sonst doppelt
         # Gemeinsamer Schlüsselbund für die Passwort-Übergabe an ZippyFS, z. B.
         # "TEAMID.dev.zippy.shared". Braucht Team-ID und in beiden Entitlements
         # keychain-access-groups. Leer: passwortgeschützte Archive werden abgelehnt.

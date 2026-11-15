@@ -113,6 +113,8 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSServices</key>
+	<array/>
 	<key>ZippyKeychainGroup</key>
 	<string></string>
 </dict>

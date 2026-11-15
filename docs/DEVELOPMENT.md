@@ -302,6 +302,24 @@ CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
   eine zufällige ID, die Erweiterung löscht den Eintrag nach dem Lesen. Braucht Team-ID;
   ohne lehnt die FSKit-Variante passwortgeschützte ZIPs mit einem Hinweis ab. Ungetestet.
 
+### Passwort über die Finder-Dienste setzen oder entfernen
+
+`NSServices` in `project.yml` (nur Variante Zippy; Zippy-FSKit überschreibt mit
+`NSServices: []`, sonst stehen die Einträge doppelt im Menü). Menütexte übersetzt in
+`Zippy/Resources/ServicesMenu.xcstrings`. Handler in `AppDelegate` (`setPassword:` /
+`removePassword:`), Ablauf in `Zippy/Shared/PasswordChanger.swift`:
+
+- Gemountete Archive werden abgelehnt (Speichern beim Auswerfen würde überschreiben).
+- Setzen nur bei ZIP (AES-256), Entfernen bei ZIP und 7z. Umgeschrieben wird mit
+  `EditableArchive.saveReplacing(_:ifUnchangedSince:encryption:)`, ein gemerktes Passwort
+  im Schlüsselbund wird nachgezogen bzw. gelöscht.
+- ZIP verschlüsselt nur Inhalte: Ein Archiv nur mit Ordnern oder leeren Dateien bleibt
+  offen, Zippy meldet das vorher (Test `onlyFoldersStayUnencrypted`).
+- Mehrere Zippy-Kopien registriert (Debug, Release, Testkopien)? Dann landet der Dienst
+  evtl. bei einer alten Version. Aufräumen mit `lsregister -u <App>`, danach
+  `/System/Library/CoreServices/pbs -update`. Test ohne Finder: `NSPerformService` mit
+  dem englischen Menütitel („Set Password with Zippy…“).
+
 ## Bearbeiten
 
 In der FUSE-Variante sind gemountete ZIPs und TARs beschreibbar: Dateien per Drag & Drop

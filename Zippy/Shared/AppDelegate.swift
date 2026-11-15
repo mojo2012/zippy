@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var receivedFiles = false
     /// Einstellungsfenster offen: nicht beenden, auch wenn alle Archive gemountet sind.
     private var settingsOpen = false
+    /// Laufende Finder-Dienste (Passwort setzen/entfernen).
+    private var servicesRunning = 0
 
     // MARK: Lebenszyklus
 
@@ -32,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mounter.cleanUp()
         // Muss vor dem Ende des Starts stehen, sonst geht ein Klick auf eine Mitteilung verloren
         UNUserNotificationCenter.current().delegate = self
+        // Finder-Dienste (Info.plist NSServices): Passwort setzen/entfernen
+        NSApp.servicesProvider = self
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -113,7 +117,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func quitIfDone() {
-        if !busy && waiting.isEmpty && openingWindows == 0 && !settingsOpen { NSApp.terminate(nil) }
+        if !busy && waiting.isEmpty && openingWindows == 0 && !settingsOpen && servicesRunning == 0 {
+            NSApp.terminate(nil)
+        }
     }
 
     // MARK: Hinweise
@@ -158,5 +164,36 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                                             willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions {
         [.banner, .sound]
+    }
+}
+
+// MARK: - Finder-Dienste
+
+extension AppDelegate {
+    /// Rechtsklick → Dienste → „Passwort mit Zippy festlegen …“ (nur ZIP).
+    @objc(setPassword:userData:error:)
+    func setPassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        runService(.set, pasteboard)
+    }
+
+    /// Rechtsklick → Dienste → „Passwort mit Zippy entfernen“ (ZIP, 7z).
+    @objc(removePassword:userData:error:)
+    func removePassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        runService(.remove, pasteboard)
+    }
+
+    private func runService(_ action: PasswordChanger.Action, _ pasteboard: NSPasteboard) {
+        receivedFiles = true   // kein Einstellungsfenster
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+                                          options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        log.info("Dienst \(action == .set ? "Passwort setzen" : "Passwort entfernen", privacy: .public): \(urls.map(\.lastPathComponent), privacy: .public)")
+        servicesRunning += 1
+        Task {
+            for url in urls {
+                await PasswordChanger.run(action, on: url) { mounter.mountedVolume(for: $0) != nil }
+            }
+            servicesRunning -= 1
+            quitIfDone()
+        }
     }
 }
