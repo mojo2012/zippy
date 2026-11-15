@@ -14,4 +14,9 @@ enum Variant {
     @MainActor static func makeMounter() -> any ArchiveMounting {
         FuseHelperMounter()
     }
+
+    /// Zippy ohne Archiv gestartet: Einstellungen in den Systemeinstellungen zeigen.
+    @MainActor static func showSettings() -> Bool {
+        PreferencePaneInstaller.installAndOpen()
+    }
 }

@@ -96,6 +96,13 @@ with an ad-hoc signature and registers it with Launch Services. The app ends up 
 - The archive opens as a drive and a Finder window shows its contents.
 - Edit as you like, then eject the drive (eject button, ⌘E, or drag it to the trash).
 
+### Settings
+
+Open Zippy itself (without an archive) to get to its settings. Zippy adds a **Zippy**
+section at the bottom of System Settings, like macFUSE does. There you choose how archives
+are mounted (automatic, FUSE-T via FSKit, FUSE-T via network share, or macFUSE) and see
+whether FUSE-T, its FSKit component and macFUSE are installed.
+
 ### What happens when you eject
 
 - If nothing changed, the archive is left untouched. Just browsing never rewrites it.
@@ -129,7 +136,9 @@ Good to know:
 
 ## Uninstall
 
-Delete `Zippy.app`. If the `/Volumes/Zippy` helper was set up, remove it with:
+Delete `Zippy.app` and `~/Library/PreferencePanes/Zippy.prefPane` (or right-click the
+Zippy section in System Settings and choose “Remove”). If the `/Volumes/Zippy` helper was
+set up, remove it with:
 
 ```bash
 sudo launchctl bootout system/dev.zippy.volumes-folder

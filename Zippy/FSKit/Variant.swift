@@ -6,4 +6,7 @@ enum Variant {
     @MainActor static func makeMounter() -> any ArchiveMounting {
         FSKitMounter()
     }
+
+    /// Nichts einzustellen.
+    @MainActor static func showSettings() -> Bool { false }
 }
