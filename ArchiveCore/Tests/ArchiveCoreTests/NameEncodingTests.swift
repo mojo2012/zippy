@@ -2,18 +2,16 @@ import Foundation
 import Testing
 @testable import ArchiveCore
 
-/// Dateinamen ohne UTF-8-Kennung: Zippy rät die Codepage, mit der das ZIP gepackt wurde.
+/// File names without the UTF-8 flag: Zippy guesses the code page the ZIP was packed with.
 @Suite struct NameEncodingTests {
     let dir: URL
 
     init() throws {
-        dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("zippy-names-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        dir = try makeTempDir("names")
     }
 
-    /// Minimales ZIP (unkomprimiert) mit genau diesen Namensbytes, ohne UTF-8-Kennung,
-    /// wie es ein Windows-Packer in seiner Codepage schreibt.
+    /// Minimal (stored) ZIP with exactly these name bytes and no UTF-8 flag,
+    /// as a Windows packer writes it in its code page.
     private func makeZip(_ entries: [(name: [UInt8], content: String)]) throws -> URL {
         var local = Data(), central = Data()
         func le16(_ v: Int, _ d: inout Data) { d += [UInt8(v & 0xFF), UInt8(v >> 8 & 0xFF)] }
@@ -22,8 +20,8 @@ import Testing
             let data = Data(entry.content.utf8)
             let crc = crc32(data)
             let offset = UInt32(local.count)
-            le32(0x0403_4B50, &local); le16(20, &local); le16(0, &local); le16(0, &local)   // Kopf, Flags 0, gespeichert
-            le16(0, &local); le16(0x21, &local)                                               // Zeit, Datum
+            le32(0x0403_4B50, &local); le16(20, &local); le16(0, &local); le16(0, &local)   // header, flags 0, stored
+            le16(0, &local); le16(0x21, &local)                                               // time, date
             le32(crc, &local); le32(UInt32(data.count), &local); le32(UInt32(data.count), &local)
             le16(entry.name.count, &local); le16(0, &local)
             local += entry.name; local += data
@@ -39,7 +37,7 @@ import Testing
         le32(0x0605_4B50, &end); le16(0, &end); le16(0, &end)
         le16(entries.count, &end); le16(entries.count, &end)
         le32(UInt32(central.count), &end); le32(UInt32(local.count), &end); le16(0, &end)
-        let url = dir.appendingPathComponent("test-\(UUID().uuidString.prefix(6)).zip")
+        let url = dir.appendingPathComponent("test-\(uniqueName()).zip")
         try (local + central + end).write(to: url)
         return url
     }
@@ -58,7 +56,7 @@ import Testing
         return Set(archive.index.entries.values.filter { $0.kind == .file }.map(\.name))
     }
 
-    /// Wie im BatteryView-ZIP eines chinesischen Herstellers: GBK, neben ASCII-Namen.
+    /// As in a Chinese vendor's BatteryView ZIP: GBK, alongside ASCII names.
     @Test func chineseGBK() throws {
         let zip = try makeZip([(Array("readme.txt".utf8), "a"),
                                (Array("Tool/".utf8) + [0xC7, 0xD0, 0xBB, 0xBB, 0xB5, 0xBD, 0xBF, 0xD8, 0xD6, 0xC6, 0xCC, 0xA8], "b")])
@@ -69,14 +67,14 @@ import Testing
     }
 
     @Test func germanDOS() throws {
-        // Codepage 437/850: ü = 0x81, ß = 0xE1, Ö = 0x99, ä = 0x84
+        // Code page 437/850: ü = 0x81, ß = 0xE1, Ö = 0x99, ä = 0x84
         let zip = try makeZip([(Array("Gr".utf8) + [0x81, 0xE1] + Array("e.txt".utf8), "a"),
                                ([0x99] + Array("l und K".utf8) + [0x84] + Array("se.doc".utf8), "b")])
         #expect(try names(zip) == ["Grüße.txt", "Öl und Käse.doc"])
     }
 
     @Test func windowsANSI() throws {
-        // Codepage 1252: ü = 0xFC, ß = 0xDF
+        // Code page 1252: ü = 0xFC, ß = 0xDF
         let zip = try makeZip([(Array("Gr".utf8) + [0xFC, 0xDF] + Array("e.txt".utf8), "a")])
         #expect(try names(zip) == ["Grüße.txt"])
     }
@@ -92,7 +90,7 @@ import Testing
         #expect(try names(zip) == ["Привет.txt"])
     }
 
-    /// Byte 0xFF: in DOS ein geschütztes Leerzeichen, in Windows-1252 „ÿ“ (echter Fall).
+    /// Byte 0xFF: a no-break space in DOS, "ÿ" in Windows-1252 (a real-world case).
     @Test func dosNoBreakSpace() throws {
         let zip = try makeZip([(Array("US2000B_".utf8) + [0xFF] + Array("UPdate".utf8) + [0xFF] + Array("_Software/a.txt".utf8), "a")])
         let archive = try Archive(url: zip)

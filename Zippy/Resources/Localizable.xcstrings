@@ -1104,6 +1104,38 @@
           }
         }
       }
+    },
+    "In this variant, password-protected archives need a keychain shared by the app and the extension (ZippyKeychainGroup, requires a developer account)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwortgeschützte Archive brauchen in dieser Variante einen gemeinsamen Schlüsselbund von App und Erweiterung (ZippyKeychainGroup, nur mit Developer-Account)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In this variant, password-protected archives need a keychain shared by the app and the extension (ZippyKeychainGroup, requires a developer account)."
+          }
+        }
+      }
+    },
+    "The volume didn’t appear. Is the Zippy file system extension turned on? (System Settings → General → Login Items & Extensions → File System Extensions)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Volume ist nicht erschienen. Ist die Zippy-Dateisystemerweiterung eingeschaltet? (Systemeinstellungen → Allgemein → Anmeldeobjekte & Erweiterungen → Dateisystemerweiterungen)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The volume didn’t appear. Is the Zippy file system extension turned on? (System Settings → General → Login Items & Extensions → File System Extensions)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -5,30 +5,32 @@
 #define _FILE_OFFSET_BITS 64
 #include "fuse/fuse.h"
 
-/// Lädt eine libfuse-2-Bibliothek: FUSE-T (/usr/local/lib/libfuse-t.dylib) oder
-/// macFUSE (/usr/local/lib/libfuse.2.dylib). Beide haben dieselbe Schnittstelle.
-/// 0 = ok, -1 = nicht ladbar (Meldung über zf_load_error). Nur eine pro Prozess.
+/// Loads a libfuse 2 library: FUSE-T (/usr/local/lib/libfuse-t.dylib) or
+/// macFUSE (/usr/local/lib/libfuse.2.dylib); both expose the same interface.
+/// Returns 0 on success, -1 if it can't be loaded (see zf_load_error).
+/// Only one library can be loaded per process.
 int zf_load(const char *library_path);
 const char *zf_load_error(void);
 
 typedef struct zf_mount zf_mount;
 
-/// Mountet mit FUSE-T. options z. B. "volname=Name,rdonly". NULL bei Fehler.
-/// Achtung: Erfolg heißt nur, dass FUSE-T den Auftrag angenommen hat.
+/// Mounts the file system. options e.g. "volname=Name,rdonly". NULL on failure.
+/// Note: success only means the library accepted the request, not that the
+/// volume is mounted yet.
 zf_mount *zf_mount_new(const char *mountpoint, const char *options,
                        const struct fuse_operations *ops, void *user_data);
 
-/// Bedient Anfragen, bis das Volume ausgehängt wird (blockiert).
+/// Serves requests until the volume is unmounted (blocks).
 int zf_mount_loop(zf_mount *m);
 
-/// Hängt über die FUSE-Bibliothek aus (einmalig, aus jedem Thread). Bei macFUSE
-/// räumt dessen Dienst dann auch den Mountpunkt unter /Volumes weg.
+/// Unmounts through the FUSE library (only once, callable from any thread).
+/// With macFUSE, its service then also removes the mount point under /Volumes.
 void zf_mount_unmount(zf_mount *m);
 
-/// Hängt aus (falls noch nötig) und gibt alles frei.
+/// Unmounts (if still needed) and frees everything.
 void zf_mount_free(zf_mount *m);
 
-/// user_data des gerade bedienten Mounts (nur in FUSE-Callbacks gültig).
+/// user_data of the mount currently being served (only valid inside FUSE callbacks).
 void *zf_private_data(void);
 
 #endif

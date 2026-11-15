@@ -1,17 +1,17 @@
 import Foundation
 
-/// Woher die Bytes des Archivs kommen: eine Datei (FUSE-Varianten) oder ein
-/// Block-Gerät (FSKit-Erweiterung). Lesen geschieht positionsbezogen und darf
-/// aus mehreren Threads gleichzeitig passieren.
+/// Where the archive's bytes come from: a file (FUSE variants) or a block device
+/// (FSKit extension). Reads use explicit offsets and may happen from several threads
+/// at once.
 public protocol ArchiveSource: Sendable {
-    /// Länge des Archivs in Bytes.
+    /// Length of the archive in bytes.
     var size: UInt64 { get }
 
-    /// Liest ab `offset` höchstens `buffer.count` Bytes. 0 heißt Ende.
+    /// Reads at most `buffer.count` bytes from `offset`. 0 means end of data.
     func read(into buffer: UnsafeMutableRawBufferPointer, at offset: UInt64) throws -> Int
 }
 
-/// Archiv aus einer Datei.
+/// An archive in a file.
 public final class FileSource: ArchiveSource, @unchecked Sendable {
     public let size: UInt64
     private let descriptor: Int32
@@ -38,19 +38,19 @@ public final class FileSource: ArchiveSource, @unchecked Sendable {
     }
 }
 
-/// Archiv auf einem Gerät, das nur in ganzen Blöcken gelesen werden kann
-/// (z. B. `FSBlockDeviceResource`). Übersetzt beliebige Lesewünsche in
-/// blockweise Zugriffe und begrenzt auf die logische Länge `size`.
+/// An archive on a device that can only be read in whole blocks (e.g.
+/// `FSBlockDeviceResource`). Translates arbitrary reads into block-aligned ones and
+/// limits them to the logical length `size`.
 public final class BlockSource: ArchiveSource, @unchecked Sendable {
     public let size: UInt64
     public let blockSize: Int
     private let readBlocks: @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int
 
     /// - Parameters:
-    ///   - size: logische Länge des Archivs (kann kleiner sein als das Gerät)
-    ///   - blockSize: Blockgröße des Geräts
-    ///   - readBlocks: liest ab einem blockausgerichteten Offset eine
-    ///     blockausgerichtete Länge in den Puffer, gibt die gelesene Anzahl zurück
+    ///   - size: logical length of the archive (may be smaller than the device)
+    ///   - blockSize: block size of the device
+    ///   - readBlocks: reads a block-aligned length from a block-aligned offset into the
+    ///     buffer and returns the number of bytes read
     public init(size: UInt64, blockSize: Int,
                 readBlocks: @escaping @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int) {
         self.size = size
@@ -79,12 +79,11 @@ public final class BlockSource: ArchiveSource, @unchecked Sendable {
     }
 }
 
-/// Mehrere Dateien als eine: die Teile eines geteilten Archivs, hintereinander gelesen.
+/// Several files as one: the parts of a split archive, read one after another.
 ///
-/// Reicht für alle Arten, die Zippy kennt: Bei `.7z.001`, `.zip.001` … sind die Teile
-/// zerschnittene Bytes. Mehrteilige RAR (`.part1.rar`, `.rar` + `.r00`) haben zwar je
-/// Teil eigene Köpfe, libarchive liest sie aber genauso als fortlaufenden Datenstrom
-/// (wie bei `archive_read_open_filenames`).
+/// This covers every kind Zippy knows: `.7z.001`, `.zip.001` … are plain byte slices.
+/// Multi-part RAR (`.part1.rar`, `.rar` + `.r00`) has headers in each part, but libarchive
+/// reads those as one continuous stream too (as with `archive_read_open_filenames`).
 public final class MultiPartSource: ArchiveSource, @unchecked Sendable {
     public let size: UInt64
     private let parts: [(source: FileSource, start: UInt64)]
@@ -103,7 +102,7 @@ public final class MultiPartSource: ArchiveSource, @unchecked Sendable {
 
     public func read(into buffer: UnsafeMutableRawBufferPointer, at offset: UInt64) throws -> Int {
         guard offset < size, buffer.count > 0 else { return 0 }
-        // Teil mit dem Anfang suchen, dann über Teilgrenzen weiterlesen
+        // Find the part containing the start, then keep reading across part boundaries
         var index = parts.lastIndex { $0.start <= offset } ?? 0
         var position = offset
         var filled = 0

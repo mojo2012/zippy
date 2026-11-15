@@ -1,20 +1,20 @@
 import CArchive
 import Foundation
 
-/// Bearbeitbare Sicht auf ein ``Archive`` (ZIP oder TAR).
+/// Editable view of an ``Archive`` (ZIP, TAR or 7z).
 ///
-/// Das Original bleibt bis zum Speichern unangetastet. Neue und geänderte Dateien
-/// liegen in einem Arbeitsordner, Löschen und Umbenennen ändern nur den Baum im
-/// Speicher. ``save(to:)`` schreibt daraus ein neues Archiv im selben Format,
-/// ``saveReplacing(_:ifUnchangedSince:)`` ersetzt damit das Original.
+/// The original stays untouched until saving. New and modified files live in a work
+/// directory; deleting and renaming only change the in-memory tree. ``save(to:encryption:)``
+/// writes a new archive in the same format from it, and
+/// ``saveReplacing(_:ifUnchangedSince:encryption:)`` replaces the original with it.
 ///
-/// Pfade sind relativ zum Wurzelordner (`"ordner/datei.txt"`, ein führendes `/` ist
-/// erlaubt). Fehler sind `POSIXError`, damit das Dateisystem sie direkt weitergeben kann.
+/// Paths are relative to the root (`"folder/file.txt"`, a leading `/` is allowed).
+/// Errors are `POSIXError` so the file system can pass them on directly.
 ///
-/// Vom System angelegte Dateien wie `.DS_Store` sind sichtbar, zählen aber nicht als
-/// Änderung und werden nicht gespeichert (siehe ``isSystemFile(_:)``).
+/// Files created by the system such as `.DS_Store` are visible but don't count as
+/// changes and aren't saved (see ``isSystemFile(_:)``).
 ///
-/// Thread-sicher über eine Sperre.
+/// Thread-safe through a lock.
 public final class EditableArchive: @unchecked Sendable {
     public struct Node: Sendable, Equatable {
         public let id: UInt64
@@ -23,28 +23,28 @@ public final class EditableArchive: @unchecked Sendable {
         public let kind: ArchiveEntry.Kind
         public fileprivate(set) var size: UInt64
         public fileprivate(set) var modificationDate: Date
-        /// Nur die Rechte-Bits (rwxrwxrwx).
+        /// Permission bits only (rwxrwxrwx).
         public fileprivate(set) var permissions: UInt16
         public let symlinkTarget: String?
-        /// Inhalt liegt noch verschlüsselt im Archiv.
+        /// The contents are still encrypted in the archive.
         public fileprivate(set) var isEncrypted: Bool
         fileprivate var content: Content
-        /// Stammt aus dem Original (dann wird er auch mit Systemnamen gespeichert).
+        /// Comes from the original (then it's saved even if it has a system name).
         fileprivate let fromArchive: Bool
 
         public var isDirectory: Bool { kind == .directory }
     }
 
     fileprivate enum Content: Sendable, Equatable {
-        case none                 // Ordner, Link
-        case original(UInt64)     // Eintrag im Archive
-        case staged               // Datei im Arbeitsordner
+        case none                 // directory, symlink
+        case original(UInt64)     // entry in the Archive
+        case staged               // file in the work directory
     }
 
     public static let rootID = ArchiveIndex.rootID
 
     public let archive: Archive
-    /// Nur lesbar, z. B. wenn verschlüsselte Dateien ohne Passwort nicht umkopiert werden können.
+    /// Read-only, e.g. when encrypted files can't be copied without a password.
     public let isReadOnly: Bool
 
     private let lock = NSLock()
@@ -77,7 +77,7 @@ public final class EditableArchive: @unchecked Sendable {
 
     deinit { close() }
 
-    /// Schließt offene Dateien und löscht den Arbeitsordner. Nicht gespeicherte Änderungen gehen verloren.
+    /// Closes open files and deletes the work directory. Unsaved changes are lost.
     public func close() {
         lock.withLock {
             for descriptor in descriptors.values { Darwin.close(descriptor) }
@@ -86,10 +86,10 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Gibt es Änderungen, die gespeichert werden müssen?
+    /// Whether there are changes that need saving.
     public var hasChanges: Bool { lock.withLock { changed } }
 
-    // MARK: Lesen
+    // MARK: Reading
 
     public func node(_ id: UInt64) -> Node? { lock.withLock { nodes[id] } }
 
@@ -97,12 +97,11 @@ public final class EditableArchive: @unchecked Sendable {
 
     public func children(of id: UInt64) -> [Node] {
         lock.withLock {
-            (childrenByKey[id] ?? [:]).values.compactMap { nodes[$0] }
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            childNodes(of: id).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
     }
 
-    /// Liest bis zu `length` Bytes ab `offset`.
+    /// Reads up to `length` bytes from `offset`.
     public func read(_ id: UInt64, offset: UInt64, length: Int) throws -> Data {
         try lock.withLock {
             guard let node = nodes[id] else { throw POSIXError(.ENOENT) }
@@ -123,13 +122,13 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Statt `Archive.contents(of:)`: auch für neue und geänderte Dateien.
+    /// Like `Archive.contents(of:)`, but also for new and modified files.
     public func contents(of id: UInt64) throws -> Data {
         guard let node = node(id) else { throw POSIXError(.ENOENT) }
         return try read(id, offset: 0, length: Int(node.size))
     }
 
-    // MARK: Ändern
+    // MARK: Modifying
 
     @discardableResult
     public func createFile(at path: String, permissions: UInt16 = 0o644) throws -> Node {
@@ -138,10 +137,7 @@ public final class EditableArchive: @unchecked Sendable {
             let node = Node(id: makeID(), parentID: parent.id, name: name, kind: .file, size: 0,
                             modificationDate: Date(), permissions: (permissions & 0o777) | 0o400,
                             symlinkTarget: nil, isEncrypted: false, content: .staged, fromArchive: false)
-            try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
-            let descriptor = open(stagedFile(node.id).path, O_RDWR | O_CREAT | O_TRUNC, 0o600)
-            guard descriptor >= 0 else { throw POSIXError(.EIO) }
-            descriptors[node.id] = descriptor
+            descriptors[node.id] = try createStagedFile(node.id)
             insert(node)
             return node
         }
@@ -171,7 +167,7 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Löscht eine Datei oder einen Link (wie `unlink`).
+    /// Deletes a file or symlink (like `unlink`).
     public func removeFile(at path: String) throws {
         try mutate {
             guard let node = resolve(path), node.id != Self.rootID else { throw POSIXError(.ENOENT) }
@@ -180,23 +176,23 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Löscht einen leeren Ordner (wie `rmdir`).
+    /// Deletes an empty directory (like `rmdir`).
     public func removeDirectory(at path: String) throws {
         try mutate {
             guard let node = resolve(path) else { throw POSIXError(.ENOENT) }
             guard node.id != Self.rootID else { throw POSIXError(.EBUSY) }
             guard node.isDirectory else { throw POSIXError(.ENOTDIR) }
-            guard (childrenByKey[node.id] ?? [:]).isEmpty else { throw POSIXError(.ENOTEMPTY) }
+            guard !hasChildren(node.id) else { throw POSIXError(.ENOTEMPTY) }
             detach(node)
         }
     }
 
-    /// Umbenennen oder Verschieben (wie `rename`): ein vorhandenes Ziel wird ersetzt.
+    /// Renames or moves (like `rename`): an existing destination is replaced.
     public func move(from source: String, to destination: String) throws {
         try mutate {
             guard let node = resolve(source), node.id != Self.rootID else { throw POSIXError(.ENOENT) }
             let (parent, name) = try parentAndName(of: destination, allowExisting: true)
-            // Ordner nicht in sich selbst verschieben
+            // a directory can't be moved into itself
             var ancestor = parent.id
             while true {
                 if ancestor == node.id { throw POSIXError(.EINVAL) }
@@ -207,7 +203,7 @@ public final class EditableArchive: @unchecked Sendable {
                let existing = nodes[existingID] {
                 if node.isDirectory {
                     guard existing.isDirectory else { throw POSIXError(.ENOTDIR) }
-                    guard (childrenByKey[existing.id] ?? [:]).isEmpty else { throw POSIXError(.ENOTEMPTY) }
+                    guard !hasChildren(existing.id) else { throw POSIXError(.ENOTEMPTY) }
                 } else if existing.isDirectory {
                     throw POSIXError(.EISDIR)
                 }
@@ -223,7 +219,7 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Schreibt in eine Datei; Dateien aus dem Archiv werden dafür erst umkopiert.
+    /// Writes to a file; files from the archive are copied to the work directory first.
     @discardableResult
     public func write(_ id: UInt64, bytes: UnsafeRawBufferPointer, at offset: UInt64) throws -> Int {
         try mutate {
@@ -270,7 +266,7 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    // MARK: Erweiterte Attribute (nur im Speicher, ZIP speichert sie nicht)
+    // MARK: Extended attributes (in memory only, archives don't store them)
 
     public func extendedAttribute(_ name: String, of id: UInt64) -> Data? {
         lock.withLock { attributes[id]?[name] }
@@ -288,15 +284,15 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    // MARK: Systemdateien
+    // MARK: System files
 
-    /// Namen, die macOS selbst anlegt und die nicht ins Archiv gehören.
+    /// Names that macOS creates by itself and that don't belong in the archive.
     public static func isSystemName(_ name: String) -> Bool {
         name.hasPrefix("._") || [".DS_Store", ".TemporaryItems", ".Trashes", ".fseventsd",
                                  ".Spotlight-V100", ".DocumentRevisions-V100", ".apdisk"].contains(name)
     }
 
-    /// Neu angelegt und selbst oder in einem Ordner mit Systemnamen: wird nicht gespeichert.
+    /// Newly created and itself or inside a directory with a system name: won't be saved.
     public func isSystemFile(_ id: UInt64) -> Bool {
         lock.withLock { excluded(id) }
     }
@@ -312,24 +308,24 @@ public final class EditableArchive: @unchecked Sendable {
         return false
     }
 
-    // MARK: Speichern
+    // MARK: Saving
 
-    /// Datum und Größe einer Datei, um fremde Änderungen am Original zu erkennen.
+    /// Date and size of a file, to detect outside changes to the original.
     public struct FileStamp: Equatable, Sendable {
         public let size: UInt64
         public let modificationDate: Date
 
         public init(of url: URL) throws {
-            // Nicht über resourceValues: Die URL merkt sich alte Werte.
+            // Not via resourceValues: the URL caches stale values.
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
             modificationDate = attributes[.modificationDate] as? Date ?? .distantPast
         }
     }
 
-    /// Speichert neben `original` und ersetzt es. Wurde das Original inzwischen von
-    /// außen geändert, bleibt es stehen und die Änderungen landen in einer Kopie
-    /// "<Name> (bearbeitet).zip". Gibt zurück, wohin gespeichert wurde.
+    /// Saves next to `original` and replaces it. If the original was changed from outside
+    /// in the meantime, it's kept and the changes go to a copy "<Name> (edited).zip".
+    /// Returns where it was saved.
     @discardableResult
     public func saveReplacing(_ original: URL, ifUnchangedSince stamp: FileStamp,
                               encryption: Encryption = .keep) throws -> URL {
@@ -350,13 +346,13 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Zusatz für Kopien mit Änderungen: "Fotos (edited).zip" bzw. "Fotos (bearbeitet).zip".
+    /// Suffix for copies with changes: "Photos (edited).zip" (localized).
     public static var editedSuffix: String {
         String(localized: "edited", bundle: .module, comment: "Suffix of a copy with changes, as in “Photos (edited).zip”")
     }
 
-    /// "<Name> (<suffix>).zip", "<Name> (<suffix> 2).zip" … – der erste freie Name.
-    /// Doppelte Endungen wie ".tar.gz" bleiben zusammen.
+    /// The first unused name of "<Name> (<suffix>).zip", "<Name> (<suffix> 2).zip" …
+    /// Double extensions like ".tar.gz" stay together.
     public static func unusedURL(like url: URL, suffix: String) -> URL {
         var base = url.deletingPathExtension().lastPathComponent
         var ext = url.pathExtension.isEmpty ? "" : "." + url.pathExtension
@@ -373,23 +369,23 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Verschlüsselung beim Speichern.
+    /// Encryption when saving.
     public enum Encryption: Sendable, Equatable {
-        /// Wie das Original: verschlüsselt mit demselben Passwort, sonst nicht.
+        /// Like the original: encrypted with the same password if it was encrypted.
         case keep
-        /// Mit diesem Passwort verschlüsseln (nur ZIP, AES-256).
+        /// Encrypt with this password (ZIP only, AES-256).
         case set(String)
-        /// Unverschlüsselt speichern.
+        /// Save unencrypted.
         case remove
     }
 
-    /// Schreibt den aktuellen Stand im Format des Originals nach `destination`:
-    /// ZIP bleibt ZIP, TAR bleibt TAR mit derselben Kompression, 7z bleibt 7z (LZMA2).
+    /// Writes the current state to `destination` in the original's format: ZIP stays ZIP,
+    /// TAR stays TAR with the same compression, 7z stays 7z (LZMA2).
     ///
-    /// Alles wird neu komprimiert (libarchive kann komprimierte Daten nicht direkt
-    /// übernehmen). Unveränderte Dateien werden dafür in Archivreihenfolge gelesen.
-    /// Verschlüsselt wird immer per AES-256, und nur ZIP: libarchive kann 7z nur
-    /// entschlüsseln. Ein verschlüsseltes 7z lässt sich darum nur mit `.remove` speichern.
+    /// Everything is recompressed (libarchive can't copy compressed data as is), so
+    /// unchanged files are read in archive order. Encryption is always AES-256 and ZIP
+    /// only: libarchive can decrypt 7z but not encrypt it, so an encrypted 7z can only be
+    /// saved with `.remove`.
     public func save(to destination: URL, encryption: Encryption = .keep) throws {
         let password: String? = switch encryption {
         case .keep: archive.needsPassword ? archive.password : nil
@@ -414,7 +410,7 @@ public final class EditableArchive: @unchecked Sendable {
                 throw ArchiveError.writeFailed(
                     String(localized: "\(archive.format.displayName) archives can’t be saved with a password", bundle: .module))
             case .tar(let compression):
-                // pax: lange Namen, UTF-8, Nanosekunden; ohne pax-Erweiterungen, wo nicht nötig
+                // pax: long names, UTF-8, nanoseconds; no pax extensions where not needed
                 status = archive_write_set_format_pax_restricted(writer)
                 if status == ARCHIVE_OK {
                     status = switch compression {
@@ -437,8 +433,8 @@ public final class EditableArchive: @unchecked Sendable {
                 throw ArchiveError.writeFailed(Archive.message(writer))
             }
 
-            // Ordner und Links sofort, Dateien danach (Originale in Archivreihenfolge)
-            // Mehrere Knoten pro Position: Hardlinks aus einem TAR
+            // Directories and links right away, files afterwards (originals in archive order).
+            // Several nodes per position: hard links from a TAR.
             var originals: [Int: [(node: Node, path: String)]] = [:]
             var staged: [(node: Node, path: String)] = []
             for (node, path) in tree() {
@@ -458,7 +454,7 @@ public final class EditableArchive: @unchecked Sendable {
             for (node, path) in staged {
                 try writeHeader(node, path: path, to: writer)
                 let descriptor = try descriptor(for: node.id)
-                var buffer = [UInt8](repeating: 0, count: 256 * 1024)
+                var buffer = [UInt8](repeating: 0, count: ArchiveReader.bufferSize)
                 var offset: off_t = 0
                 while offset < off_t(node.size) {
                     let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, $0.count, offset) }
@@ -473,18 +469,14 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
-    /// Liest das Original einmal von vorne und übernimmt die noch gültigen Dateien.
+    /// Reads the original once from the start and copies the files that are still current.
     private func copyOriginals(_ originals: [Int: [(node: Node, path: String)]], to writer: OpaquePointer) throws {
         let reader = try ArchiveReader(source: archive.source, password: archive.password)
         defer { reader.close() }
         let last = originals.keys.max()!
-        var header: OpaquePointer?
-        var buffer = [UInt8](repeating: 0, count: 256 * 1024)
+        var buffer = [UInt8](repeating: 0, count: ArchiveReader.bufferSize)
         for position in 0...last {
-            let status = archive_read_next_header(reader.archive, &header)
-            guard status == ARCHIVE_OK || status == ARCHIVE_WARN else {
-                throw ArchiveError.readFailed(Archive.message(reader.archive))
-            }
+            try reader.nextHeader()
             guard let targets = originals[position], let (node, path) = targets.first else {
                 archive_read_data_skip(reader.archive)
                 continue
@@ -496,7 +488,7 @@ public final class EditableArchive: @unchecked Sendable {
                 guard count > 0 else { throw ArchiveError.readFailed(Archive.message(reader.archive)) }
                 try writeData(buffer, count: count, to: writer)
             }
-            // Weitere Namen derselben Daten bleiben Hardlinks (nur TAR kennt das)
+            // Further names for the same data stay hard links (only TAR has them)
             for (other, otherPath) in targets.dropFirst() {
                 try writeHeader(other, path: otherPath, hardlinkTo: path, to: writer)
             }
@@ -509,12 +501,12 @@ public final class EditableArchive: @unchecked Sendable {
         defer { archive_entry_free(entry) }
         archive_entry_copy_pathname(entry, path.precomposedStringWithCanonicalMapping)
         switch node.kind {
-        case .directory: archive_entry_set_filetype(entry, 0o040000)
+        case .directory: archive_entry_set_filetype(entry, Archive.typeDirectory)
         case .symlink:
-            archive_entry_set_filetype(entry, 0o120000)
+            archive_entry_set_filetype(entry, Archive.typeSymlink)
             archive_entry_copy_symlink(entry, (node.symlinkTarget ?? "").precomposedStringWithCanonicalMapping)
         case .file:
-            archive_entry_set_filetype(entry, 0o100000)
+            archive_entry_set_filetype(entry, Archive.typeRegular)
             if let linkTarget {
                 archive_entry_copy_hardlink(entry, linkTarget.precomposedStringWithCanonicalMapping)
                 archive_entry_set_size(entry, 0)
@@ -523,7 +515,7 @@ public final class EditableArchive: @unchecked Sendable {
             }
         }
         archive_entry_set_perm(entry, mode_t(node.permissions))
-        // TAR speichert Besitzer; sonst gehört beim Entpacken als root alles root
+        // TAR stores owners; otherwise extracting as root would make everything owned by root
         archive_entry_set_uid(entry, la_int64_t(getuid()))
         archive_entry_set_gid(entry, la_int64_t(getgid()))
         let seconds = node.modificationDate.timeIntervalSince1970.rounded(.down)
@@ -540,11 +532,11 @@ public final class EditableArchive: @unchecked Sendable {
         guard written == count else { throw ArchiveError.writeFailed(Archive.message(writer)) }
     }
 
-    /// Alle zu speichernden Einträge mit Pfad, Eltern vor Kindern, ohne Systemdateien.
+    /// All entries to save with their paths, parents before children, without system files.
     private func tree() -> [(Node, String)] {
         var result: [(Node, String)] = []
         func visit(_ id: UInt64, prefix: String) {
-            let children = (childrenByKey[id] ?? [:]).values.compactMap { nodes[$0] }.sorted { $0.name < $1.name }
+            let children = childNodes(of: id).sorted { $0.name < $1.name }
             for child in children where !excluded(child.id) {
                 let path = prefix + child.name
                 result.append((child, path))
@@ -555,9 +547,17 @@ public final class EditableArchive: @unchecked Sendable {
         return result
     }
 
-    // MARK: Intern
+    // MARK: Internals
 
-    private static func key(_ name: String) -> String { name.precomposedStringWithCanonicalMapping }
+    private static func key(_ name: String) -> String { ArchiveIndex.key(name) }
+
+    private func childNodes(of id: UInt64) -> [Node] {
+        (childrenByKey[id] ?? [:]).values.compactMap { nodes[$0] }
+    }
+
+    private func hasChildren(_ id: UInt64) -> Bool {
+        !(childrenByKey[id] ?? [:]).isEmpty
+    }
 
     private func mutate<T>(_ body: () throws -> T) throws -> T {
         try lock.withLock {
@@ -591,7 +591,7 @@ public final class EditableArchive: @unchecked Sendable {
         touch(node.parentID, systemFile: excluded(node.id))
     }
 
-    /// Nimmt einen Eintrag aus dem Baum. Er bleibt in `nodes`, damit offene Dateien weiter gehen.
+    /// Removes a node from the tree. It stays in `nodes` so open files keep working.
     private func detach(_ node: Node) {
         let systemFile = excluded(node.id)
         childrenByKey[node.parentID]?[Self.key(node.name)] = nil
@@ -599,7 +599,7 @@ public final class EditableArchive: @unchecked Sendable {
         nodes[node.id]?.parentID = 0
     }
 
-    /// Ordnerinhalt hat sich geändert.
+    /// The directory's contents changed.
     private func touch(_ directoryID: UInt64, systemFile: Bool) {
         guard !systemFile else { return }
         nodes[directoryID]?.modificationDate = Date()
@@ -620,6 +620,14 @@ public final class EditableArchive: @unchecked Sendable {
         workDirectory.appendingPathComponent(String(id))
     }
 
+    /// Creates (or empties) the work file for `id` and opens it.
+    private func createStagedFile(_ id: UInt64) throws -> Int32 {
+        try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+        let descriptor = open(stagedFile(id).path, O_RDWR | O_CREAT | O_TRUNC, 0o600)
+        guard descriptor >= 0 else { throw POSIXError(.EIO) }
+        return descriptor
+    }
+
     private func descriptor(for id: UInt64) throws -> Int32 {
         if let descriptor = descriptors[id] { return descriptor }
         let descriptor = open(stagedFile(id).path, O_RDWR)
@@ -628,16 +636,14 @@ public final class EditableArchive: @unchecked Sendable {
         return descriptor
     }
 
-    /// Sorgt dafür, dass die Datei im Arbeitsordner liegt, und gibt ihren Deskriptor.
+    /// Makes sure the file is in the work directory and returns its descriptor.
     private func materialize(_ id: UInt64, keepingContents: Bool = true) throws -> Int32 {
         guard let node = nodes[id] else { throw POSIXError(.ENOENT) }
         guard node.kind == .file else { throw POSIXError(.EISDIR) }
         guard case .original(let entryID) = node.content else { return try descriptor(for: id) }
         guard !node.isEncrypted || archive.password != nil else { throw POSIXError(.EACCES) }
 
-        try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
-        let descriptor = open(stagedFile(id).path, O_RDWR | O_CREAT | O_TRUNC, 0o600)
-        guard descriptor >= 0 else { throw POSIXError(.EIO) }
+        let descriptor = try createStagedFile(id)
         if keepingContents {
             var offset: UInt64 = 0
             while offset < node.size {

@@ -1,19 +1,20 @@
 import Foundation
 import Security
 
-/// Kleiner Zugriff auf generische Passwörter im Schlüsselbund.
-/// Wird von der App und der FSKit-Erweiterung benutzt.
+/// Minimal access to generic passwords in the keychain.
+/// Used by both the app and the FSKit extension.
 enum Keychain {
-    /// Übergabe des Passworts von der App an die FSKit-Erweiterung (einmalig, wird gelöscht).
+    /// Hands a password from the app to the FSKit extension (one-shot, deleted after reading).
     static let handoffService = "dev.zippy.password-handoff"
 
-    /// Gemeinsame Schlüsselbund-Gruppe von App und Erweiterung aus dem Info.plist
-    /// (`ZippyKeychainGroup`, z. B. "TEAMID.dev.zippy.shared"). Leer ohne Team-ID.
+    /// Keychain group shared by app and extension, from Info.plist
+    /// (`ZippyKeychainGroup`, e.g. "TEAMID.dev.zippy.shared"). Empty without a team ID.
     static var sharedGroup: String? {
         (Bundle.main.object(forInfoDictionaryKey: "ZippyKeychainGroup") as? String).flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    /// - Parameter accessGroup: gemeinsame Gruppe für App und Erweiterung (FSKit), sonst nil
+    /// Replaces any existing item for `service`/`account`.
+    /// - Parameter accessGroup: group shared by app and extension (FSKit), otherwise nil
     static func save(_ password: String, service: String, account: String, label: String? = nil,
                      accessGroup: String? = nil) {
         delete(service: service, account: account, accessGroup: accessGroup)
@@ -21,7 +22,7 @@ enum Keychain {
         item[kSecValueData as String] = Data(password.utf8)
         if let label { item[kSecAttrLabel as String] = label }
         let status = SecItemAdd(item as CFDictionary, nil)
-        if status != errSecSuccess { log.error("Schlüsselbund speichern: \(status)") }
+        if status != errSecSuccess { log.error("Saving to keychain failed: \(status)") }
     }
 
     static func load(service: String, account: String, accessGroup: String? = nil) -> String? {
@@ -44,9 +45,9 @@ enum Keychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        // Gemeinsame Gruppen gibt es nur im Data-Protection-Schlüsselbund; der braucht
-        // eine richtige Signatur (Team-ID). Ohne Gruppe: klassischer Anmelde-Schlüsselbund,
-        // der auch mit Ad-hoc-Signatur funktioniert.
+        // Shared groups only exist in the data protection keychain, which requires a real
+        // signature (team ID). Without a group we use the classic login keychain, which
+        // also works with an ad-hoc signature.
         if let accessGroup {
             item[kSecAttrAccessGroup as String] = accessGroup
             item[kSecUseDataProtectionKeychain as String] = true

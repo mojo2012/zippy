@@ -2,24 +2,29 @@ import ArchiveCore
 import Foundation
 import FuseMount
 
-/// Hilfsprozess: ein Volume pro Prozess, FUSE-Schleife im Haupt-Thread.
+/// Helper process: one volume per process, FUSE loop on the main thread.
 ///
-/// Meldet der App über stdout eine Zeile: `READY` oder `ERROR <text>`.
-/// Solange er läuft, gibt es eine ``VolumeRecord``-Datei in ``ZippyPaths/stateDirectory``.
+/// Reports one line to the app via stdout: ``ready``, or ``mountFailedPrefix`` /
+/// ``errorPrefix`` followed by a message. While it runs, a ``VolumeRecord`` file
+/// exists in ``ZippyPaths/stateDirectory``.
 enum ServeCommand {
     static let flag = "--serve"
+    static let ready = "READY"
+    /// The volume didn't appear; the app then tries another backend.
+    static let mountFailedPrefix = "MOUNTFAILED "
+    static let errorPrefix = "ERROR "
 
     static func run(backend: FuseBackend, archive archivePath: String, mountPoint mountPath: String, name: String) -> Never {
         let mountPoint = URL(fileURLWithPath: mountPath, isDirectory: true)
         let record = VolumeRecord(pid: getpid(), archive: archivePath, mountPoint: mountPath)
 
-        // Beenden per SIGTERM (z. B. Abmelden): sauber aushängen, dann endet die Schleife.
+        // On SIGTERM (e.g. logout): unmount cleanly, which ends the loop.
         signal(SIGTERM, SIG_IGN)
         let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
         sigterm.setEventHandler { Darwin.unmount(mountPath, 0) }
         sigterm.resume()
 
-        // Passwort kommt über stdin (leer = keins). Die App schließt die Pipe danach.
+        // The password arrives via stdin (empty = none); the app closes the pipe afterwards.
         let input = FileHandle.standardInput.readDataToEndOfFile()
         let password = input.isEmpty ? nil : String(decoding: input, as: UTF8.self)
 
@@ -30,10 +35,10 @@ enum ServeCommand {
             stamp = try EditableArchive.FileStamp(of: archiveURL)
             archive = try Archive(url: archiveURL, password: password)
         } catch {
-            report("ERROR \(error.localizedDescription)")
+            report(errorPrefix + error.localizedDescription)
             exit(1)
         }
-        // Beschreibbar, wenn sich das Archiv ersetzen lässt (Datei und Ordner schreibbar)
+        // Writable if the archive can be replaced (both file and folder writable)
         let fileManager = FileManager.default
         let writable = fileManager.isWritableFile(atPath: archivePath)
             && fileManager.isWritableFile(atPath: archiveURL.deletingLastPathComponent().path)
@@ -42,17 +47,16 @@ enum ServeCommand {
         FuseVolume.serve(files, name: name, at: mountPoint, backend: backend,
                          volumeIcon: Bundle.main.url(forResource: archive.format.iconName, withExtension: "icns")) { error in
             if let error {
-                // Eigene Kennung: Die App versucht dann ein anderes Backend
-                report("MOUNTFAILED \(error.localizedDescription)")
+                report(mountFailedPrefix + error.localizedDescription)
                 try? FileManager.default.removeItem(at: mountPoint)
-                exit(1)   // die Schleife kehrt ohne Mount nicht zurück
+                exit(1)   // without a mount, the loop never returns
             } else {
                 record.save()
-                report("READY")
+                report(ready)
             }
         }
 
-        // Ausgehängt: Änderungen jetzt ins Archiv schreiben
+        // Unmounted: write the changes back to the archive now
         if files.hasChanges { save(files, to: archiveURL, stamp: stamp, name: name) }
         files.close()
         archive.close()
@@ -60,12 +64,12 @@ enum ServeCommand {
         exit(0)
     }
 
-    /// Ersetzt das Original. Geht das nicht, landen die Änderungen als Kopie auf dem
-    /// Schreibtisch; in beiden Sonderfällen kommt eine Mitteilung.
+    /// Replaces the original. If that isn't possible, the changes go to a copy on the
+    /// desktop. Either way, anything other than a plain replace posts a notification.
     private static func save(_ files: EditableArchive, to archive: URL, stamp: EditableArchive.FileStamp, name: String) {
         do {
             let target = try files.saveReplacing(archive, ifUnchangedSince: stamp)
-            log.info("gespeichert: \(target.path, privacy: .public)")
+            log.info("Saved \(target.path, privacy: .public)")
             if target != archive {
                 Notifier.post(title: String(localized: "“\(archive.lastPathComponent)” was changed in the meantime"),
                               body: String(localized: "The original stays as it is. Your changes are in “\(target.lastPathComponent)”."),
@@ -73,8 +77,8 @@ enum ServeCommand {
             }
             return
         } catch {
-            // Details nur ins Log, die Mitteilung bleibt kurz (libarchive meldet rohe Pfade)
-            log.error("Speichern fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+            // Details go to the log only; the notification stays short (libarchive reports raw paths)
+            log.error("Saving failed: \(error.localizedDescription, privacy: .public)")
         }
 
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
@@ -82,12 +86,12 @@ enum ServeCommand {
                                              suffix: EditableArchive.editedSuffix)
         do {
             try files.save(to: copy)
-            log.info("Ersatzkopie: \(copy.path, privacy: .public)")
+            log.info("Saved copy instead: \(copy.path, privacy: .public)")
             Notifier.post(title: String(localized: "Changes to “\(archive.lastPathComponent)” not saved"),
                           body: String(localized: "The original couldn’t be replaced. A copy with your changes is on the desktop."),
                           reveal: copy)
         } catch {
-            log.error("Ersatzkopie fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+            log.error("Saving a copy failed: \(error.localizedDescription, privacy: .public)")
             Notifier.post(title: String(localized: "Changes to “\(archive.lastPathComponent)” lost"),
                           body: String(localized: "Neither the original nor a copy on the desktop could be written. Details are in the log."),
                           reveal: archive)
@@ -95,19 +99,19 @@ enum ServeCommand {
     }
 
     private static func report(_ line: String) {
-        // Ist die App schon weg, geht das ins Leere (SIGPIPE ist ignoriert).
+        // If the app is already gone, this goes nowhere (SIGPIPE is ignored).
         try? FileHandle.standardOutput.write(contentsOf: Data((line + "\n").utf8))
     }
 }
 
-/// Gemeinsame Orte von App und Hilfsprozess.
+/// Locations shared by the app and the helper processes.
 enum ZippyPaths {
-    /// Merkzettel und FUSE-T-Mountpunkte. /tmp wird beim Neustart geleert.
+    /// Volume records and FUSE-T mount points. /tmp is cleared on restart.
     static let stateDirectory = URL(fileURLWithPath: "/private/tmp/Zippy-\(getuid())", isDirectory: true)
 }
 
-/// Merkzettel eines laufenden Hilfsprozesses: welches Archiv wo gemountet ist.
-/// Liegt als `<Volumename>.zippy` in ``ZippyPaths/stateDirectory``.
+/// Record of a running helper process: which archive is mounted where.
+/// Stored as `<mount point name>.zippy` in ``ZippyPaths/stateDirectory``.
 struct VolumeRecord: Codable {
     let pid: Int32
     let archive: String

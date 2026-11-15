@@ -12,7 +12,7 @@
 			<key>CFBundleTypeIconFile</key>
 			<string>zip</string>
 			<key>CFBundleTypeName</key>
-			<string>ZIP-Archiv</string>
+			<string>ZIP Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -27,7 +27,7 @@
 			<key>CFBundleTypeIconFile</key>
 			<string>tgz</string>
 			<key>CFBundleTypeName</key>
-			<string>TAR-Archiv</string>
+			<string>TAR Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -49,7 +49,7 @@
 			<key>CFBundleTypeIconFile</key>
 			<string>7z</string>
 			<key>CFBundleTypeName</key>
-			<string>7-Zip-Archiv</string>
+			<string>7-Zip Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -70,7 +70,7 @@
 				<string>r02</string>
 			</array>
 			<key>CFBundleTypeName</key>
-			<string>Geteiltes Archiv</string>
+			<string>Split Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -80,7 +80,7 @@
 			<key>CFBundleTypeIconFile</key>
 			<string>rar</string>
 			<key>CFBundleTypeName</key>
-			<string>RAR-Archiv</string>
+			<string>RAR Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>

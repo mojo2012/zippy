@@ -1,14 +1,14 @@
 import ArchiveCore
 import FSKit
 
-/// Ein Eintrag des Archivs als FSKit-Objekt. Pro Eintrag gibt es genau ein
-/// `ZipItem`, damit FSKit dieselbe Datei immer als dasselbe Objekt sieht.
+/// An archive entry as an FSKit item. There is exactly one `ZipItem` per entry,
+/// so FSKit always sees the same file as the same object.
 final class ZipItem: FSItem {
     let entry: ArchiveEntry
     init(entry: ArchiveEntry) { self.entry = entry }
 }
 
-/// Nur lesbares Volume über einem ``Archive``. Alles, was schreibt, antwortet mit EROFS.
+/// Read-only volume backed by an ``Archive``. Every write operation fails with EROFS.
 final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperations, @unchecked Sendable {
 
     let archive: Archive
@@ -29,7 +29,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         }
     }
 
-    // MARK: Eigenschaften
+    // MARK: Properties
 
     var maximumLinkCount: Int { 1 }
     var maximumNameLength: Int { 255 }
@@ -60,7 +60,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         return stats
     }
 
-    // MARK: Lebenszyklus
+    // MARK: Lifecycle
 
     func activate(options: FSTaskOptions, replyHandler reply: @escaping (FSItem?, (any Error)?) -> Void) {
         reply(item(for: archive.index.root), nil)
@@ -83,7 +83,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         reply(nil)
     }
 
-    // MARK: Lesen
+    // MARK: Reading
 
     func getAttributes(_ desiredAttributes: FSItem.GetAttributesRequest, of item: FSItem,
                        replyHandler reply: @escaping (FSItem.Attributes?, (any Error)?) -> Void) {
@@ -112,8 +112,8 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         }
         let index = archive.index
         let parent = index.entry(directory.entry.parentID) ?? directory.entry
-        // Cookie = Position in dieser Liste; das Archiv ändert sich nie, darum ist
-        // der Verifier konstant.
+        // Cookie = position in this list. The archive never changes, so the verifier
+        // is constant.
         let entries: [(String, ArchiveEntry)] =
             [(".", directory.entry), ("..", parent)] + index.children(of: directory.entry.id).map { ($0.name, $0) }
 
@@ -158,7 +158,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         reply(nil)
     }
 
-    // MARK: Schreiben (nicht unterstützt)
+    // MARK: Writing (not supported)
 
     func setAttributes(_ newAttributes: FSItem.SetAttributesRequest, on item: FSItem,
                        replyHandler reply: @escaping (FSItem.Attributes?, (any Error)?) -> Void) {
@@ -198,7 +198,7 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         reply(0, POSIXError(.EROFS))
     }
 
-    // MARK: Hilfen
+    // MARK: Helpers
 
     private static func itemType(_ kind: ArchiveEntry.Kind) -> FSItem.ItemType {
         switch kind {
@@ -216,9 +216,9 @@ final class ZipVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperatio
         case .symlink: S_IFLNK
         case .file: S_IFREG
         }
-        attrs.mode = UInt32(typeBits) | UInt32(entry.permissions & 0o555)   // nur lesbar
+        attrs.mode = UInt32(typeBits) | UInt32(entry.permissions & 0o555)   // read-only
         attrs.linkCount = entry.isDirectory ? 2 : 1
-        attrs.uid = 99   // "unknown": macOS zeigt den angemeldeten Nutzer als Besitzer
+        attrs.uid = 99   // "unknown": macOS shows the logged-in user as the owner
         attrs.gid = 99
         let size = entry.kind == .symlink ? UInt64(entry.symlinkTarget?.utf8.count ?? 0) : entry.size
         attrs.size = size

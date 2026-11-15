@@ -2,33 +2,21 @@ import Foundation
 import Testing
 @testable import ArchiveCore
 
-/// Passwort setzen, ändern und entfernen (Finder-Dienste der App).
+/// Setting, changing and removing passwords (the app's Finder services).
 @Suite struct PasswordChangeTests {
     let dir: URL
     let big = Data((0..<200_000).map { UInt8(($0 * 31) % 255) })
+    var files: [String: Data] { ["a.txt": Data("secret".utf8), "Folder/big.bin": big] }
 
     init() throws {
-        dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("zippy-pwchange-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        dir = try makeTempDir("pwchange")
     }
 
-    private func makeZip(password: String? = nil) throws -> URL {
-        let src = dir.appendingPathComponent("src-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: src.appendingPathComponent("Ordner"), withIntermediateDirectories: true)
-        try Data("geheim".utf8).write(to: src.appendingPathComponent("a.txt"))
-        try big.write(to: src.appendingPathComponent("Ordner/big.bin"))
-        let zip = dir.appendingPathComponent("test-\(UUID().uuidString.prefix(6)).zip")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-        process.arguments = ["-q", "-r"] + (password.map { ["-P", $0] } ?? []) + [zip.path, "."]
-        process.currentDirectoryURL = src
-        try process.run()
-        process.waitUntilExit()
-        return zip
+    private func makeTestZip(password: String? = nil) throws -> URL {
+        try makeZip(in: dir, files, flags: password.map { ["-P", $0] } ?? [])
     }
 
-    /// Wie die App: öffnen, umschreiben, Original ersetzen.
+    /// Like the app: open, rewrite, replace the original.
     private func rewrite(_ url: URL, password: String?, _ encryption: EditableArchive.Encryption) throws {
         let stamp = try EditableArchive.FileStamp(of: url)
         let archive = try Archive(url: url, password: password)
@@ -41,90 +29,59 @@ import Testing
     private func check(_ url: URL, password: String?) throws {
         let archive = try Archive(url: url, password: password)
         #expect(archive.needsPassword == (password != nil))
-        let a = try #require(archive.index.lookup(path: "a.txt"))
-        #expect(try archive.contents(of: a.id) == Data("geheim".utf8))
-        let b = try #require(archive.index.lookup(path: "Ordner/big.bin"))
-        #expect(try archive.contents(of: b.id) == big)
+        #expect(try archive.data(at: "a.txt") == Data("secret".utf8))
+        #expect(try archive.data(at: "Folder/big.bin") == big)
     }
 
     @Test func setPasswordOnPlainZip() throws {
-        let zip = try makeZip()
+        let zip = try makeTestZip()
         #expect(try Archive(url: zip).canSetPassword)
-        try rewrite(zip, password: nil, .set("neu"))
-        try check(zip, password: "neu")
-        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: zip, password: "falsch").checkPassword() }
+        try rewrite(zip, password: nil, .set("new"))
+        try check(zip, password: "new")
+        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: zip, password: "wrong").checkPassword() }
     }
 
-    /// ZIP verschlüsselt nur Dateiinhalte: Ordner und leere Dateien bleiben offen.
+    /// ZIP only encrypts file contents: folders and empty files stay unencrypted.
     @Test func onlyFoldersStayUnencrypted() throws {
-        let src = dir.appendingPathComponent("leer", isDirectory: true)
-        try FileManager.default.createDirectory(at: src.appendingPathComponent("Ordner"), withIntermediateDirectories: true)
-        let zip = dir.appendingPathComponent("leer.zip")
-        func pack() throws {
-            try? FileManager.default.removeItem(at: zip)
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-            process.arguments = ["-q", "-r", zip.path, "."]
-            process.currentDirectoryURL = src
-            try process.run()
-            process.waitUntilExit()
+        let addFolder: (URL) throws -> Void = { src in
+            try FileManager.default.createDirectory(at: src.appendingPathComponent("Folder"),
+                                                    withIntermediateDirectories: true)
         }
-        try pack()
-        try rewrite(zip, password: nil, .set("neu"))
-        #expect(try !Archive(url: zip).needsPassword)
+        let foldersOnly = try makeZip(in: dir, [:], prepare: addFolder)
+        try rewrite(foldersOnly, password: nil, .set("new"))
+        #expect(try !Archive(url: foldersOnly).needsPassword)
 
-        try Data().write(to: src.appendingPathComponent("leer.txt"))
-        try pack()
-        try rewrite(zip, password: nil, .set("neu"))
-        #expect(try !Archive(url: zip).needsPassword)
+        let withEmptyFile = try makeZip(in: dir, ["empty.txt": Data()], prepare: addFolder)
+        try rewrite(withEmptyFile, password: nil, .set("new"))
+        #expect(try !Archive(url: withEmptyFile).needsPassword)
     }
 
     @Test func changePassword() throws {
-        let zip = try makeZip(password: "alt")
-        try rewrite(zip, password: "alt", .set("neu"))
-        try check(zip, password: "neu")
-        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: zip, password: "alt").checkPassword() }
+        let zip = try makeTestZip(password: "old")
+        try rewrite(zip, password: "old", .set("new"))
+        try check(zip, password: "new")
+        #expect(throws: ArchiveError.wrongPassword) { try Archive(url: zip, password: "old").checkPassword() }
     }
 
     @Test func removePasswordFromZip() throws {
-        let zip = try makeZip(password: "alt")
+        let zip = try makeTestZip(password: "old")
         #expect(try Archive(url: zip).canRemovePassword)
-        try rewrite(zip, password: "alt", .remove)
+        try rewrite(zip, password: "old", .remove)
         try check(zip, password: nil)
     }
 
-    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/7zz")), arguments: [false, true])
+    @Test(.enabled(if: has7zz), arguments: [false, true])
     func removePasswordFrom7z(encryptedNames: Bool) throws {
-        let src = dir.appendingPathComponent("src7z-\(encryptedNames)", isDirectory: true)
-        try FileManager.default.createDirectory(at: src.appendingPathComponent("Ordner"), withIntermediateDirectories: true)
-        try Data("geheim".utf8).write(to: src.appendingPathComponent("a.txt"))
-        try big.write(to: src.appendingPathComponent("Ordner/big.bin"))
-        let archive = dir.appendingPathComponent("enc-\(encryptedNames).7z")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/7zz")
-        process.arguments = ["a", "-bso0", "-palt", "-mhe=\(encryptedNames ? "on" : "off")", archive.path, "."]
-        process.currentDirectoryURL = src
-        try process.run()
-        process.waitUntilExit()
-
-        #expect(try Archive(url: archive, password: "alt").canRemovePassword)
-        #expect(try !Archive(url: archive, password: "alt").canSetPassword)
-        try rewrite(archive, password: "alt", .remove)
-        let saved = try Archive(url: archive)
-        #expect(saved.format == .sevenZip)
+        let archive = try makeEncrypted7z(in: dir, files, password: "old", encryptedNames: encryptedNames)
+        #expect(try Archive(url: archive, password: "old").canRemovePassword)
+        #expect(try !Archive(url: archive, password: "old").canSetPassword)
+        try rewrite(archive, password: "old", .remove)
+        #expect(try Archive(url: archive).format == .sevenZip)
         try check(archive, password: nil)
     }
 
     @Test func noPasswordForTar() throws {
-        let src = dir.appendingPathComponent("tarsrc", isDirectory: true)
-        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
-        try Data("x".utf8).write(to: src.appendingPathComponent("x.txt"))
-        let tar = dir.appendingPathComponent("x.tar.gz")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = ["-czf", tar.path, "-C", src.path, "."]
-        try process.run()
-        process.waitUntilExit()
+        let tar = try makeTar(in: dir, ["x.txt": Data("x".utf8)], flags: "z", name: "x.tar.gz")
         let archive = try Archive(url: tar)
         #expect(!archive.canSetPassword && !archive.canRemovePassword)
         #expect(throws: ArchiveError.self) {

@@ -4,11 +4,11 @@ import os
 
 let log = Logger(subsystem: "dev.zippy.ZippyFSKit.ZippyFS", category: "fs")
 
-/// FSKit-Dateisystem für Zippy-Images (siehe ``ZippyImage``).
+/// FSKit file system for Zippy images (see ``ZippyImage``).
 ///
-/// macOS 15 kann FSKit-Volumes nur aus Block-Geräten bauen. Die App hängt das ZIP
-/// deshalb als Disk-Image an; diese Erweiterung erkennt das Gerät am Zippy-Trailer
-/// und stellt den Inhalt über ArchiveCore bereit, wie die FUSE-Varianten.
+/// macOS 15 can only build FSKit volumes from block devices, so the app attaches the
+/// archive as a disk image. This extension recognizes the device by its Zippy trailer
+/// and serves the contents through ArchiveCore, just like the FUSE variant.
 final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
 
     private var volume: ZipVolume?
@@ -23,7 +23,7 @@ final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
                                                      readBlocks: Self.reader(for: device)) else {
                 return replyHandler(.notRecognized, nil)
             }
-            log.info("probe: \(device.bsdName, privacy: .public) ist Zippy-Image \(info.name, privacy: .public)")
+            log.info("probe: \(device.bsdName, privacy: .public) is Zippy image \(info.name, privacy: .public)")
             replyHandler(.usable(name: info.name, containerID: FSContainerIdentifier(uuid: UUID())), nil)
         } catch {
             log.error("probe: \(error.localizedDescription, privacy: .public)")
@@ -44,7 +44,7 @@ final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
                 (archive, info) = try ZippyImage.open(blockSize: blockSize, blockCount: device.blockCount,
                                                       password: password, readBlocks: Self.reader(for: device))
             }
-            log.info("load: \(info.name, privacy: .public), \(archive.index.entries.count) Einträge")
+            log.info("load: \(info.name, privacy: .public), \(archive.index.entries.count) entries")
             let volume = ZipVolume(archive: archive, name: info.name)
             self.volume = volume
             containerStatus = .ready
@@ -62,18 +62,17 @@ final class ZipFileSystem: FSUnaryFileSystem, FSUnaryFileSystemOperations {
         replyHandler(nil)
     }
 
-    /// Holt das Passwort, das die App unter der ID aus dem Trailer abgelegt hat, und
-    /// löscht den Eintrag. Ohne Passwort bleibt das Volume lesbar, verschlüsselte
-    /// Dateien melden dann "Zugriff verweigert".
+    /// Takes the password the app stored under the trailer's ID and deletes the item.
+    /// Without a password the volume still mounts; encrypted files then fail with EACCES.
     private static func takePassword(for info: ZippyImage.Info) -> String? {
         guard let id = info.passwordID, let group = Keychain.sharedGroup else { return nil }
         let password = Keychain.load(service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
         Keychain.delete(service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
-        if password == nil { log.error("Passwort für \(info.name, privacy: .public) nicht im Schlüsselbund") }
+        if password == nil { log.error("Password for \(info.name, privacy: .public) not found in keychain") }
         return password
     }
 
-    /// Blockweises Lesen vom Gerät für ``BlockSource``.
+    /// Block-wise reads from the device, for ``BlockSource``.
     private static func reader(for device: FSBlockDeviceResource)
         -> @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int {
         nonisolated(unsafe) let device = device

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Ein Eintrag im Archiv: Datei, Ordner oder symbolischer Link.
+/// An entry in the archive: file, directory or symbolic link.
 ///
-/// IDs sind stabil, solange das Archiv geöffnet ist. Der Wurzelordner hat
-/// immer ``ArchiveIndex/rootID`` (2, wie bei FSKit üblich).
+/// IDs are stable while the archive is open. The root directory always has
+/// ``ArchiveIndex/rootID`` (2, as is customary with FSKit).
 public struct ArchiveEntry: Sendable, Equatable {
     public enum Kind: Sendable, Equatable {
         case file
@@ -15,18 +15,18 @@ public struct ArchiveEntry: Sendable, Equatable {
     public let parentID: UInt64
     public let name: String
     public let kind: Kind
-    /// Unkomprimierte Größe in Bytes (0 bei Ordnern).
+    /// Uncompressed size in bytes (0 for directories).
     public let size: UInt64
     public let modificationDate: Date
-    /// Nur die Rechte-Bits (rwxrwxrwx), ohne Dateityp.
+    /// Permission bits only (rwxrwxrwx), without the file type.
     public let permissions: UInt16
-    /// Ziel bei symbolischen Links.
+    /// Target of a symbolic link.
     public let symlinkTarget: String?
-    /// Verschlüsselte Einträge lassen sich ohne Passwort nicht lesen.
+    /// Encrypted entries can't be read without a password.
     public let isEncrypted: Bool
 
-    /// Position des Eintrags im Archiv. `nil` bei Ordnern, die nur
-    /// indirekt über einen Pfad existieren.
+    /// Position of the entry's header in the archive. `nil` for directories that only
+    /// exist implicitly through a path.
     let archiveIndex: Int?
 
     public var isDirectory: Bool { kind == .directory }

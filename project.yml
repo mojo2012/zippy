@@ -1,16 +1,16 @@
 name: Zippy
 options:
-  bundleIdPrefix: dev.zippy          # TODO: auf eigene Domain ändern
-  developmentLanguage: en            # Texte englisch, deutsch in Localizable.xcstrings
+  bundleIdPrefix: dev.zippy          # TODO: change to your own domain
+  developmentLanguage: en            # English source strings; German in the .xcstrings catalogs
   deploymentTarget:
     macOS: "15.4"
   createIntermediateGroups: true
 
 packages:
   ArchiveCore:
-    path: ArchiveCore    # ZIP-Kern (libarchive)
+    path: ArchiveCore    # archive core (libarchive)
   FuseMount:
-    path: FuseMount      # Adapter auf FUSE-T
+    path: FuseMount      # FUSE-T / macFUSE adapter
 
 settings:
   base:
@@ -18,16 +18,16 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
-    ENABLE_DEBUG_DYLIB: NO           # sonst scheitert die Ad-hoc-Signatur
-    DEVELOPMENT_TEAM: ""             # TODO: Team-ID eintragen
+    ENABLE_DEBUG_DYLIB: NO           # otherwise ad-hoc signing fails
+    DEVELOPMENT_TEAM: ""             # TODO: enter your team ID
 
 targets:
-  # Zwei austauschbare Varianten derselben App. Gemeinsam: Zippy/Shared
-  # (Dateien entgegennehmen, Finder-Fenster, beenden). Unterschiedlich ist nur,
-  # welche ArchiveMounting-Umsetzung dazukommt: Zippy/FUSE oder Zippy/FSKit.
-  # Doppelklick auf ein ZIP → Volume im Finder → Auswerfen.
+  # Two interchangeable variants of the same app. Shared: Zippy/Shared (receiving
+  # files, Finder windows, quitting). They differ only in which ArchiveMounting
+  # implementation is added: Zippy/FUSE or Zippy/FSKit.
+  # Double-click an archive → volume in Finder → eject.
 
-  # FUSE-Variante: FUSE-T oder macFUSE, ohne Sandbox, ohne Developer-Account.
+  # FUSE variant: FUSE-T or macFUSE, no sandbox, no Developer account needed.
   Zippy:
     type: application
     platform: macOS
@@ -36,13 +36,13 @@ targets:
       path: Zippy/Info.plist
       properties: &appInfo
         CFBundleDisplayName: Zippy
-        CFBundleShortVersionString: $(MARKETING_VERSION)   # sonst setzt XcodeGen fest "1.0"
+        CFBundleShortVersionString: $(MARKETING_VERSION)   # otherwise XcodeGen hardcodes "1.0"
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIconFile: AppIcon      # scripts/make-app-icon.swift
         LSApplicationCategoryType: public.app-category.utilities
-        LSUIElement: true              # kein Dock-Symbol, kein Menü
+        LSUIElement: true              # no Dock icon, no menu bar
         NSPrincipalClass: NSApplication
-        # Finder: Rechtsklick → Dienste. Texte übersetzt in Zippy/Resources/ServicesMenu.xcstrings
+        # Finder: right-click → Services. Titles translated in Zippy/Resources/ServicesMenu.xcstrings
         NSServices:
           - NSMenuItem: {default: "Set Password with Zippy…"}
             NSMessage: setPassword
@@ -55,41 +55,41 @@ targets:
             NSRequiredContext: {}
             NSSendFileTypes: [public.zip-archive, com.pkware.zip-archive, org.7-zip.7-zip-archive]
         CFBundleDocumentTypes:
-          - CFBundleTypeName: ZIP-Archiv
+          - CFBundleTypeName: ZIP Archive
             CFBundleTypeRole: Viewer
             CFBundleTypeIconFile: zip    # Zippy/Resources/Icons
-            LSHandlerRank: Alternate   # Standard-App wird man über „Öffnen mit → Alle ändern“
+            LSHandlerRank: Alternate   # users make Zippy the default via Get Info → Open With → Change All
             LSItemContentTypes: [com.pkware.zip-archive, public.zip-archive]
-          - CFBundleTypeName: TAR-Archiv
+          - CFBundleTypeName: TAR Archive
             CFBundleTypeRole: Viewer
             CFBundleTypeIconFile: tgz
             LSHandlerRank: Alternate
-            # .tar, .tgz, .tbz, .txz; .tar.gz/.tar.bz2/.tar.xz/.tar.Z gelten nur als
-            # gzip/bzip2/xz/compress. Ist darin kein TAR, meldet Zippy, dass es das Archiv
-            # nicht öffnen kann.
+            # .tar, .tgz, .tbz, .txz; .tar.gz/.tar.bz2/.tar.xz/.tar.Z are typed only as
+            # gzip/bzip2/xz/compress. If there's no TAR inside, Zippy reports that it
+            # can't open the archive.
             LSItemContentTypes: [public.tar-archive, org.gnu.gnu-tar-archive, org.gnu.gnu-zip-tar-archive,
                                  public.tar-bzip2-archive, org.tukaani.tar-xz-archive, org.gnu.gnu-zip-archive,
                                  public.bzip2-archive, org.tukaani.xz-archive, public.z-archive]
-          - CFBundleTypeName: 7-Zip-Archiv
+          - CFBundleTypeName: 7-Zip Archive
             CFBundleTypeRole: Viewer
             CFBundleTypeIconFile: 7z
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.7-zip.7-zip-archive]
-          - CFBundleTypeName: Geteiltes Archiv
-            CFBundleTypeRole: Viewer       # nur lesbar
+          - CFBundleTypeName: Split Archive
+            CFBundleTypeRole: Viewer       # read-only
             LSHandlerRank: Alternate
-            # Teile wie Name.7z.001 oder Name.r00 haben keinen eigenen Dateityp in macOS.
-            # Name.part1.rar ist ein normales RAR.
+            # Parts like Name.7z.001 or Name.r00 have no file type of their own in macOS.
+            # Name.part1.rar is a regular RAR.
             CFBundleTypeExtensions: ["001", "002", "003", "r00", "r01", "r02"]
-          - CFBundleTypeName: RAR-Archiv
-            CFBundleTypeRole: Viewer       # nur lesbar
+          - CFBundleTypeName: RAR Archive
+            CFBundleTypeRole: Viewer       # read-only
             CFBundleTypeIconFile: rar
             LSHandlerRank: Alternate
             LSItemContentTypes: [com.rarlab.rar-archive]
     entitlements:
       path: Zippy/Zippy.entitlements
       properties:
-        # libfuse-t.dylib / libfuse.2.dylib sind von deren Herstellern signiert
+        # libfuse-t.dylib / libfuse.2.dylib are signed by their vendors, not by us
         com.apple.security.cs.disable-library-validation: true
     dependencies:
       - package: ArchiveCore
@@ -99,8 +99,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
         ENABLE_HARDENED_RUNTIME: YES
 
-  # FSKit-Variante: eigene Dateisystem-Erweiterung, Sandbox, App-Store-tauglich.
-  # Braucht einen bezahlten Developer-Account (Recht com.apple.developer.fskit.fsmodule).
+  # FSKit variant: own file system extension, sandboxed, App Store compatible.
+  # Needs a paid Developer account (entitlement com.apple.developer.fskit.fsmodule).
   Zippy-FSKit:
     type: application
     platform: macOS
@@ -109,10 +109,10 @@ targets:
       path: Zippy/Info-FSKit.plist
       properties:
         <<: *appInfo
-        NSServices: []                 # Finder-Dienste nur in der FUSE-Variante, sonst doppelt
-        # Gemeinsamer Schlüsselbund für die Passwort-Übergabe an ZippyFS, z. B.
-        # "TEAMID.dev.zippy.shared". Braucht Team-ID und in beiden Entitlements
-        # keychain-access-groups. Leer: passwortgeschützte Archive werden abgelehnt.
+        NSServices: []                 # Finder services only in the FUSE variant, otherwise they'd show up twice
+        # Shared keychain group for handing passwords to ZippyFS, e.g.
+        # "TEAMID.dev.zippy.shared". Needs a team ID and keychain-access-groups in both
+        # entitlements. Empty: password-protected archives are rejected.
         ZippyKeychainGroup: ""
     entitlements:
       path: Zippy/Zippy-FSKit.entitlements
@@ -129,7 +129,7 @@ targets:
         PRODUCT_NAME: Zippy-FSKit
         ENABLE_HARDENED_RUNTIME: YES
 
-  # FSKit-Erweiterung (ExtensionKit), landet in Zippy-FSKit.app/Contents/Extensions
+  # FSKit extension (ExtensionKit), embedded in Zippy-FSKit.app/Contents/Extensions
   ZippyFS:
     type: extensionkit-extension
     platform: macOS
@@ -141,7 +141,7 @@ targets:
       properties:
         CFBundleDisplayName: Zippy
         CFBundleIconFile: AppIcon      # scripts/make-app-icon.swift
-        ZippyKeychainGroup: ""     # wie bei Zippy-FSKit
+        ZippyKeychainGroup: ""     # same as Zippy-FSKit
         EXAppExtensionAttributes:
           EXExtensionPointIdentifier: com.apple.fskit.fsmodule
           FSShortName: zippy
@@ -149,8 +149,8 @@ targets:
           FSPersonalities:
             zippy:
               FSName: Zippy
-          # Roh angehängtes Image = ganzes Gerät ohne Partitionstabelle.
-          # Format wie bei Apples msdos-Modul ("Partitionless").
+          # A raw attached image is a whole device without a partition table.
+          # Same format as Apple's msdos module ("Partitionless").
           FSMediaTypes:
             Partitionless:
               FSMediaProperties:

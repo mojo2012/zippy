@@ -1,10 +1,10 @@
 import Foundation
 import FuseMount
 
-/// FUSE-Variante: FUSE-T oder macFUSE, ein Hilfsprozess pro Volume.
+/// FUSE variant: FUSE-T or macFUSE, one helper process per volume.
 enum Variant {
-    /// `Zippy --serve <backend> <archiv> <mountpunkt> <name>` startet den Hilfsprozess
-    /// und kehrt nicht zurück.
+    /// `Zippy --serve <backend> <archive> <mount point> <name>` runs the helper process
+    /// and never returns.
     static func handleCommandLine() {
         let args = CommandLine.arguments
         if args.count == 6, args[1] == ServeCommand.flag, let backend = FuseBackend(rawValue: args[2]) {
@@ -18,9 +18,10 @@ enum Variant {
 
     @MainActor private static var settings: SettingsWindow?
 
-    /// Zippy ohne Archiv gestartet: Einstellungsfenster zeigen. `onClose` beim Schließen.
+    /// Zippy was launched without an archive: show the settings window; `onClose` runs
+    /// when it is closed.
     @MainActor static func showSettings(onClose: @escaping @MainActor () -> Void) -> Bool {
-        // Reste eines früheren Versuchs mit einem Bereich in den Systemeinstellungen
+        // Leftover from an earlier attempt at a System Settings pane
         let oldPane = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/PreferencePanes/Zippy.prefPane")
         try? FileManager.default.removeItem(at: oldPane)

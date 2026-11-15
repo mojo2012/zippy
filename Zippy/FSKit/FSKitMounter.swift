@@ -1,44 +1,41 @@
 import AppKit
 import ArchiveCore
 
-/// Mountet über die eigene FSKit-Erweiterung (ZippyFS). App-Store-tauglich:
-/// läuft in der Sandbox, braucht keine Zusatzsoftware, aber einen bezahlten
-/// Apple-Developer-Account zum Signieren der Erweiterung.
+/// Mounts through Zippy's own FSKit extension (ZippyFS). App Store compatible:
+/// runs sandboxed and needs no third-party software, but signing the extension
+/// requires a paid Apple Developer account.
 ///
-/// Ablauf (macOS 15, FSKit nur mit Block-Geräten):
-/// 1. ``ZippyImage`` anlegen: APFS-Clone des ZIPs + Auffüllen + Trailer mit Namen
-/// 2. Image an DiskImageMounter übergeben → macOS hängt es als Gerät an
-/// 3. ZippyFS erkennt den Trailer und stellt das Volume unter /Volumes bereit
-/// 4. Auswerfen im Finder löst Volume und Gerät wie bei einer .dmg
+/// Flow (macOS 15, where FSKit only works with block devices):
+/// 1. create a ``ZippyImage``: APFS clone of the archive + padding + trailer with the name
+/// 2. hand the image to DiskImageMounter → macOS attaches it as a device
+/// 3. ZippyFS recognizes the trailer and provides the volume under /Volumes
+/// 4. ejecting in Finder detaches volume and device, like a .dmg
 ///
-/// Ab macOS 26 könnte FSKit direkt aus der Datei mounten (`FSPathURLResource`);
-/// dann fallen Schritt 1 und 2 weg, die Schnittstelle bleibt.
+/// From macOS 26 on, FSKit could mount straight from the file (`FSPathURLResource`);
+/// steps 1 and 2 would go away, the interface stays the same.
 @MainActor
 final class FSKitMounter: ArchiveMounting {
     private let diskImageMounter = URL(fileURLWithPath: "/System/Library/CoreServices/DiskImageMounter.app")
-    /// Im Sandbox-Container der App.
+    /// Inside the app's sandbox container.
     private let imagesDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("Images", isDirectory: true)
     private let timeout: Duration = .seconds(30)
 
-    /// Die Erweiterung steckt in der App; ob sie eingeschaltet ist, zeigt sich erst beim Mounten.
+    /// The extension ships inside the app; whether it's enabled only shows when mounting.
     var missingComponent: (name: String, downloadURL: URL)? { nil }
 
-    /// FSKit-Volumes werden nicht pro Archiv verwaltet: jedes Öffnen mountet neu.
+    /// FSKit volumes aren't tracked per archive: every open mounts anew.
     func mountedVolume(for archive: URL) -> URL? { nil }
 
     func mount(_ archive: URL, password: String?) async throws -> URL {
         let name = Archive.volumeName(for: archive)
 
-        // Passwort an die Erweiterung: über den gemeinsamen Schlüsselbund, unter einer
-        // zufälligen ID, die im Image-Trailer steht. Die Erweiterung löscht den Eintrag.
+        // Pass the password to the extension through the shared keychain, under a random
+        // ID stored in the image trailer. The extension deletes the item after reading it.
         var passwordID: UUID?
         if let password {
             guard let group = Keychain.sharedGroup else {
-                throw MountError(message: """
-                    Passwortgeschützte Archive brauchen in dieser Variante einen gemeinsamen \
-                    Schlüsselbund von App und Erweiterung (ZippyKeychainGroup, nur mit Developer-Account).
-                    """)
+                throw MountError(message: String(localized: "In this variant, password-protected archives need a keychain shared by the app and the extension (ZippyKeychainGroup, requires a developer account)."))
             }
             let id = UUID()
             Keychain.save(password, service: Keychain.handoffService, account: id.uuidString, accessGroup: group)
@@ -51,24 +48,21 @@ final class FSKitMounter: ArchiveMounting {
         try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
         let image = imagesDirectory.appendingPathComponent("\(name) [\(UUID().uuidString.prefix(8))].img")
         try ZippyImage.create(from: archive, at: image, name: name, passwordID: passwordID)
-        // Nur lesbar: dann hängt DiskImageMounter das Image auch nur lesend an.
+        // Read-only file, so DiskImageMounter attaches the image read-only too.
         try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: image.path)
 
-        // Auf das Volume warten, bevor DiskImageMounter loslegt, damit nichts verpasst wird.
+        // Start watching before DiskImageMounter runs, so the mount notification isn't missed.
         let appeared = waitForVolume(named: name)
         _ = try await NSWorkspace.shared.open([image], withApplicationAt: diskImageMounter,
                                               configuration: NSWorkspace.OpenConfiguration())
         guard let volume = await appeared.value else {
-            throw MountError(message: """
-                Das Volume ist nicht erschienen. Ist die Zippy-Dateisystemerweiterung eingeschaltet? \
-                (Systemeinstellungen → Allgemein → Anmeldeobjekte & Erweiterungen → Dateisystemerweiterungen)
-                """)
+            throw MountError(message: String(localized: "The volume didn’t appear. Is the Zippy file system extension turned on? (System Settings → General → Login Items & Extensions → File System Extensions)"))
         }
         return volume
     }
 
-    /// Wartet auf ein neu gemountetes Volume mit diesem Namen (ZippyFS benennt es
-    /// nach dem Trailer). macOS hängt bei gleichen Namen " 1", " 2" … an.
+    /// Waits for a newly mounted volume with this name (ZippyFS names it after the
+    /// trailer). Gives up after ``timeout``.
     private func waitForVolume(named name: String) -> Task<URL?, Never> {
         let timeout = self.timeout
         let watcher = Task { @MainActor () -> URL? in
@@ -77,9 +71,9 @@ final class FSKitMounter: ArchiveMounting {
                 guard let url = notification.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL,
                       let volumeName = notification.userInfo?[NSWorkspace.localizedVolumeNameUserInfoKey] as? String
                 else { continue }
-                if volumeName == name || volumeName.hasPrefix(name + " ") { return url }
+                if Self.volumeName(volumeName, matches: name) { return url }
             }
-            return nil   // abgebrochen
+            return nil   // cancelled by the timeout
         }
         Task {
             try? await Task.sleep(for: timeout)
@@ -88,17 +82,23 @@ final class FSKitMounter: ArchiveMounting {
         return watcher
     }
 
-    /// Alte Images löschen, deren Volume nicht mehr gemountet ist.
+    /// Deletes old images whose volume is no longer mounted.
     func cleanUp() {
         let mountedNames = Set((FileManager.default.mountedVolumeURLs(
             includingResourceValuesForKeys: [.volumeNameKey], options: []) ?? [])
             .compactMap { try? $0.resourceValues(forKeys: [.volumeNameKey]).volumeName })
         let images = (try? FileManager.default.contentsOfDirectory(at: imagesDirectory, includingPropertiesForKeys: nil)) ?? []
         for image in images where image.pathExtension == "img" {
+            // Images are named "<volume name> [<random id>].img".
             let stem = image.deletingPathExtension().lastPathComponent
             let name = stem.components(separatedBy: " [").dropLast().joined(separator: " [")
-            let stillMounted = mountedNames.contains { $0 == name || $0.hasPrefix(name + " ") }
+            let stillMounted = mountedNames.contains { Self.volumeName($0, matches: name) }
             if !stillMounted { try? FileManager.default.removeItem(at: image) }
         }
+    }
+
+    /// True for `name` itself and for the " 1", " 2" … suffixes macOS adds to duplicate names.
+    private nonisolated static func volumeName(_ volumeName: String, matches name: String) -> Bool {
+        volumeName == name || volumeName.hasPrefix(name + " ")
     }
 }

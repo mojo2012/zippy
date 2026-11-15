@@ -1,11 +1,11 @@
-// Erzeugt die Dokument-Icons für Archivtypen im Stil der macOS-Dokumentsymbole:
-// weißes Blatt mit Eselsohr, Reißverschluss von oben, Typ-Kürzel unten.
-// Jeder Typ hat eine eigene Farbe (Reißverschluss + Kürzel).
+// Generates the document icons for archive types in the style of macOS document icons:
+// a white page with a folded corner, a zipper from the top and the type label at the bottom.
+// Each type has its own color (zipper + label).
 //
-//   swift scripts/make-icons.swift <ausgabe-ordner> [vorschau.png]
+//   swift scripts/make-icons.swift <output-folder> [preview.png]
 //
-// Ergebnis: <ausgabe-ordner>/<typ>.icns (über iconutil) und optional ein Vorschaubild.
-// Alles wird mit CoreGraphics gezeichnet, es werden keine Apple-Grafiken verwendet.
+// Result: <output-folder>/<type>.icns (via iconutil) and optionally a preview image.
+// Everything is drawn in code; no Apple artwork is used.
 
 import AppKit
 
@@ -16,13 +16,13 @@ struct ArchiveType {
 }
 
 let types = [
-    ArchiveType(id: "zip", label: "ZIP", color: NSColor(srgbRed: 0.18, green: 0.48, blue: 0.96, alpha: 1)),   // Blau
-    ArchiveType(id: "rar", label: "RAR", color: NSColor(srgbRed: 0.56, green: 0.29, blue: 0.85, alpha: 1)),   // Violett
-    ArchiveType(id: "7z", label: "7Z", color: NSColor(srgbRed: 0.18, green: 0.62, blue: 0.33, alpha: 1)),     // Grün
-    ArchiveType(id: "tgz", label: "TGZ", color: NSColor(srgbRed: 0.93, green: 0.50, blue: 0.13, alpha: 1)),   // Orange
+    ArchiveType(id: "zip", label: "ZIP", color: NSColor(srgbRed: 0.18, green: 0.48, blue: 0.96, alpha: 1)),   // blue
+    ArchiveType(id: "rar", label: "RAR", color: NSColor(srgbRed: 0.56, green: 0.29, blue: 0.85, alpha: 1)),   // purple
+    ArchiveType(id: "7z", label: "7Z", color: NSColor(srgbRed: 0.18, green: 0.62, blue: 0.33, alpha: 1)),     // green
+    ArchiveType(id: "tgz", label: "TGZ", color: NSColor(srgbRed: 0.93, green: 0.50, blue: 0.13, alpha: 1)),   // orange
 ]
 
-// Zeichenfläche in Einheiten von 1024, wird auf die Pixelgröße skaliert.
+// Canvas in units of 1024, scaled to the pixel size.
 let left: CGFloat = 196, right: CGFloat = 828, bottom: CGFloat = 64, top: CGFloat = 960
 let fold: CGFloat = 176, radius: CGFloat = 28
 
@@ -60,10 +60,14 @@ func shade(_ color: NSColor, _ amount: CGFloat) -> NSColor {
     amount < 0 ? color.blended(withFraction: -amount, of: .black)! : color.blended(withFraction: amount, of: .white)!
 }
 
+func bitmap(width: Int, height: Int) -> NSBitmapImageRep {
+    NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
+                     samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                     colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+}
+
 func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
-                               samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    let rep = bitmap(width: pixels, height: pixels)
     rep.size = NSSize(width: pixels, height: pixels)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
@@ -72,10 +76,10 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
     transform.scale(by: scale)
     transform.concat()
 
-    let detailed = pixels >= 64          // Zähne und Kürzel erst ab 64 px
-    let line = max(3, 1.2 / scale)       // mindestens ~1 Pixel Kontur
+    let detailed = pixels >= 64          // teeth and label from 64 px up
+    let line = max(3, 1.2 / scale)       // outline at least ~1 pixel
 
-    // Blatt mit Schatten
+    // Page with shadow
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
     shadow.shadowColor = NSColor(white: 0, alpha: 0.28)
@@ -91,13 +95,13 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
     NSColor(srgbRed: 0.76, green: 0.76, blue: 0.79, alpha: 1).setStroke()
     let outline = pagePath(); outline.lineWidth = line; outline.stroke()
 
-    // Eselsohr
+    // Folded corner
     NSGradient(starting: NSColor(srgbRed: 0.97, green: 0.97, blue: 0.98, alpha: 1),
                ending: NSColor(srgbRed: 0.84, green: 0.84, blue: 0.87, alpha: 1))!
         .draw(in: foldPath(), angle: -45)
     let foldOutline = foldPath(); foldOutline.lineWidth = line; foldOutline.stroke()
 
-    // Reißverschluss: Zähne abwechselnd links/rechts, von der Oberkante nach unten
+    // Zipper: teeth alternating left/right, from the top edge down
     let center: CGFloat = 512
     let zipperTop = top - 4, zipperBottom: CGFloat = 520
     let color = type.color
@@ -119,7 +123,7 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
         color.setFill(); stripe.fill()
     }
 
-    // Schieber und Zuglasche
+    // Slider and pull tab
     let slider = NSBezierPath(roundedRect: NSRect(x: center - 50, y: zipperBottom - 70, width: 100, height: 92),
                               xRadius: 22, yRadius: 22)
     NSGradient(starting: shade(color, 0.1), ending: shade(color, -0.3))!.draw(in: slider, angle: -90)
@@ -135,7 +139,7 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
         NSColor.white.withAlphaComponent(0.9).setFill(); hole.fill()
     }
 
-    // Kürzel unten
+    // Type label at the bottom
     if detailed {
         let base = NSFont.systemFont(ofSize: type.label.count > 2 ? 150 : 170, weight: .heavy)
         let font = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: base.pointSize) } ?? base
@@ -150,11 +154,11 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
 
 func png(_ rep: NSBitmapImageRep) -> Data { rep.representation(using: .png, properties: [:])! }
 
-// MARK: Ausgabe
+// MARK: Output
 
 let args = CommandLine.arguments
 guard args.count >= 2 else {
-    print("Aufruf: swift scripts/make-icons.swift <ausgabe-ordner> [vorschau.png]")
+    print("Usage: swift scripts/make-icons.swift <output-folder> [preview.png]")
     exit(2)
 }
 let output = URL(fileURLWithPath: args[1], isDirectory: true)
@@ -176,20 +180,18 @@ for type in types {
     print("\(type.id).icns")
 }
 
-// Vorschau: alle Typen nebeneinander in 256 px und darunter in 32 px
+// Preview: all types side by side at 256 px, with 32 px versions below
 if args.count >= 3 {
     let big = 256, small = 32, gap = 24
     let width = types.count * (big + gap) + gap, height = big + small + 3 * gap
-    let sheet = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
-                                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    let sheet = bitmap(width: width, height: height)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: sheet)
     NSColor(white: 0.93, alpha: 1).setFill()
     NSRect(x: 0, y: 0, width: width, height: height).fill()
     for (i, type) in types.enumerated() {
         let x = gap + i * (big + gap)
-        // sourceOver, sonst überschreibt die transparente Fläche den Hintergrund
+        // sourceOver, otherwise the transparent area overwrites the background
         drawIcon(type, pixels: big).draw(in: NSRect(x: x, y: small + 2 * gap, width: big, height: big),
                                          from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: false, hints: nil)
         drawIcon(type, pixels: small).draw(in: NSRect(x: x + (big - small) / 2, y: gap, width: small, height: small),
@@ -197,6 +199,6 @@ if args.count >= 3 {
     }
     NSGraphicsContext.restoreGraphicsState()
     try png(sheet).write(to: URL(fileURLWithPath: args[2]))
-    print("Vorschau: \(args[2])")
+    print("Preview: \(args[2])")
 }
 try? FileManager.default.removeItem(at: work)

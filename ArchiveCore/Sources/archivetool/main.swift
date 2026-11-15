@@ -1,15 +1,15 @@
 import ArchiveCore
 import Foundation
 
-// Kleines Werkzeug zum Ausprobieren des Kerns ohne Mounten:
-//   archivetool ls  <archiv.zip>
-//   archivetool cat <archiv.zip> <pfad/im/archiv> [passwort]
+// Small tool for trying out the core without mounting:
+//   archivetool ls  <archive.zip>
+//   archivetool cat <archive.zip> <path/in/archive> [password]
 
 func usage() -> Never {
     FileHandle.standardError.write(Data("""
-    Aufruf:
-      archivetool ls  <archiv.zip>
-      archivetool cat <archiv.zip> <pfad/im/archiv> [passwort]
+    Usage:
+      archivetool ls  <archive.zip>
+      archivetool cat <archive.zip> <path/in/archive> [password]
 
     """.utf8))
     exit(2)
@@ -20,7 +20,7 @@ func printTree(_ archive: Archive, _ id: UInt64, indent: String = "") {
         let suffix = switch entry.kind {
         case .directory: "/"
         case .symlink: " -> \(entry.symlinkTarget ?? "?")"
-        case .file: "  (\(entry.size) B\(entry.isEncrypted ? ", verschlüsselt" : ""))"
+        case .file: "  (\(entry.size) B\(entry.isEncrypted ? ", encrypted" : ""))"
         }
         print("\(indent)\(entry.name)\(suffix)")
         if entry.isDirectory { printTree(archive, entry.id, indent: indent + "  ") }
@@ -42,6 +42,6 @@ do {
         usage()
     }
 } catch {
-    FileHandle.standardError.write(Data("Fehler: \(error.localizedDescription)\n".utf8))
+    FileHandle.standardError.write(Data("Error: \(error.localizedDescription)\n".utf8))
     exit(1)
 }

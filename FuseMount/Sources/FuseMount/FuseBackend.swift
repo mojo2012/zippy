@@ -1,17 +1,17 @@
 import Foundation
 
-/// Welche FUSE-Implementierung das Volume bereitstellt. Alle sprechen libfuse 2,
-/// der Code darüber ist derselbe.
+/// Which FUSE implementation provides the volume. All of them speak libfuse 2,
+/// so the code on top is the same.
 public enum FuseBackend: String, CaseIterable, Sendable {
-    /// FUSE-T: NFS-basiert, keine Systemerweiterung. Volumes erscheinen in der
-    /// Finder-Seitenleiste als Freigaben unter dem Server „fuse-t“.
+    /// FUSE-T over NFS, no system extension. Volumes show up in the Finder sidebar
+    /// as shares of the server "fuse-t".
     case fuseT = "fuse-t"
-    /// macFUSE über FSKit (`backend=fskit`): lokale Volumes. Experimentell, siehe
+    /// macFUSE via FSKit (`backend=fskit`): local volumes. Experimental, see
     /// ``choose(setting:)``.
     case macFUSE = "macfuse"
-    /// FUSE-T über FSKit (`backend=fskit`, ab macOS 26, braucht /Applications/fuse-t.app
-    /// mit eingeschalteter Erweiterung). Lokale Volumes unter /Volumes/Zippy: im Finder
-    /// mit Seitenleiste, Schreibtischsymbol und Auswerfen, mehrere gleichzeitig.
+    /// FUSE-T via FSKit (`backend=fskit`, macOS 26 or later, needs /Applications/fuse-t.app
+    /// with its extension turned on). Local volumes under /Volumes/Zippy: shown in the
+    /// Finder sidebar and on the desktop, ejectable, several at once.
     case fuseTFSKit = "fuse-t-fskit"
 
     public var displayName: String {
@@ -35,37 +35,35 @@ public enum FuseBackend: String, CaseIterable, Sendable {
         }
     }
 
-    /// Zusätzliche Mount-Optionen.
+    /// Additional mount options, each with a leading comma.
     var extraOptions: String {
         switch self {
-        case .fuseT: ",namedattr"         // erweiterte Attribute (Finder-Info fürs Volume-Symbol)
-        case .macFUSE: ",backend=fskit"   // ohne Kernel-Erweiterung, ab macOS 15.4
-        case .fuseTFSKit: ",backend=fskit"
+        case .fuseT: ",namedattr"   // extended attributes (Finder info for the volume icon)
+        case .macFUSE, .fuseTFSKit: ",backend=fskit"   // macFUSE: no kernel extension, macOS 15.4+
         }
     }
 
-    /// FSKit reicht erweiterte Attribute nicht durch; der Kernel legt sie als
-    /// AppleDouble-Dateien (`._name`) ins Volume. Das Volume-Symbol braucht dann `._.`.
+    /// FSKit doesn't pass extended attributes through; the kernel stores them in the
+    /// volume as AppleDouble files (`._name`). The volume icon then needs `._.`.
     var usesAppleDouble: Bool { self == .fuseTFSKit }
 
-    /// Pfad der FSKit-Komponente von FUSE-T. Der Installer legt sie nur an, wenn er
-    /// schon unter macOS 26 oder neuer läuft.
+    /// FUSE-T's FSKit component. Its installer only adds it when run on macOS 26 or later.
     public static let fskitAppPath = "/Applications/fuse-t.app"
 
-    /// Wo die Mountpunkte liegen.
-    /// - FUSE-T (NFS): in Zippys eigenem Ordner; nach /Volumes darf es als normaler
-    ///   Nutzer nicht, im Finder erscheinen die Volumes trotzdem.
-    /// - macFUSE: ebenso; es dürfte nach /Volumes, lässt dort aber leere Ordner zurück.
-    /// - FUSE-T über FSKit: unter `volumesFolder`. Nur unter /Volumes behandelt der
-    ///   Finder FSKit-Volumes als Laufwerke (Seitenleiste, Schreibtisch, Auswerfen).
+    /// Where the mount points go.
+    /// - FUSE-T (NFS): Zippy's own state directory; a regular user may not mount under
+    ///   /Volumes, and Finder shows the volumes anyway.
+    /// - macFUSE: same; it could use /Volumes but leaves empty folders behind there.
+    /// - FUSE-T via FSKit: `volumesFolder`. Finder only treats FSKit volumes as drives
+    ///   (sidebar, desktop, eject) when they are under /Volumes.
     public func mountDirectory(stateDirectory: URL, volumesFolder: URL) -> URL {
         self == .fuseTFSKit ? volumesFolder : stateDirectory
     }
 
-    /// Ordnername des Mountpunkts. Der Finder zeigt bei macFUSE diesen Namen in der
-    /// Seitenleiste an (den Volumenamen nur im Fenstertitel). macFUSE 5.2 (FSKit,
-    /// macOS 15) scheitert an Leerzeichen und Nicht-ASCII-Zeichen im Pfad, darum
-    /// wird dort umgeschrieben: "Mein Archiv" → "Mein-Archiv", "Grüße" → "Grusse".
+    /// Folder name of the mount point. With macFUSE, Finder shows this name in the
+    /// sidebar (the volume name only in the window title). macFUSE 5.2 (FSKit, macOS 15)
+    /// fails on spaces and non-ASCII characters in the path, so for macFUSE the name is
+    /// rewritten: "My Archive" → "My-Archive", "Grüße" → "Grusse".
     public func directoryName(for name: String) -> String {
         guard self == .macFUSE else { return name }
         let latin = name.applyingTransform(.toLatin, reverse: false) ?? name
@@ -81,20 +79,20 @@ public enum FuseBackend: String, CaseIterable, Sendable {
             }
         }
         result = result.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        return result.isEmpty ? "Archiv" : result
+        return result.isEmpty ? String(localized: "Archive", bundle: .module) : result
     }
 
-    /// Prüft, ob die Bibliothek vorhanden ist (ohne sie zu laden).
+    /// Whether the library (and for FSKit, fuse-t.app) is present, without loading it.
     public var isInstalled: Bool {
         FileManager.default.fileExists(atPath: libraryPath)
             && (self != .fuseTFSKit || FileManager.default.fileExists(atPath: Self.fskitAppPath))
     }
 
-    /// Ausdrücklich eingestellt gewinnt. Sonst FUSE-T über FSKit, wenn möglich (macOS 26+,
-    /// fuse-t.app vorhanden), sonst FUSE-T über NFS. Ob die FSKit-Erweiterung auch
-    /// eingeschaltet ist, zeigt erst der Mount; /Volumes/Zippy prüft die App vorher.
-    /// macFUSE nur auf Wunsch: Auf macOS 15 (macFUSE 5.2, FSKit) fehlt die Seitenleiste,
-    /// es geht nur ein Volume gleichzeitig, und gescheiterte Mounts hinterlassen Geräte.
+    /// An explicit setting wins. Otherwise FUSE-T via FSKit when possible (macOS 26+,
+    /// fuse-t.app present), else FUSE-T via NFS. Whether the FSKit extension is actually
+    /// turned on only shows when mounting; the app checks /Volumes/Zippy beforehand.
+    /// macFUSE only on request: on macOS 15 (macFUSE 5.2, FSKit) volumes are missing from
+    /// the sidebar, only one volume works at a time, and failed mounts leave devices behind.
     public static func choose(setting: String?) -> FuseBackend {
         if let explicit = setting.flatMap(FuseBackend.init(rawValue:)) { return explicit }
         let fskitPossible = ProcessInfo.processInfo.isOperatingSystemAtLeast(

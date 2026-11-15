@@ -256,6 +256,22 @@
           }
         }
       }
+    },
+    "unknown error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unbekannter Fehler"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unknown error"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

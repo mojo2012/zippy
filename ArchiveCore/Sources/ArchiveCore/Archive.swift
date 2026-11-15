@@ -23,20 +23,20 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
     }
 }
 
-/// Archivformat, beim Öffnen am Inhalt erkannt. Bestimmt, wie gespeichert wird.
+/// Archive format, detected from the content when opening. Determines how changes are saved.
 public enum ArchiveFormat: Sendable, Equatable {
     case zip
     case tar(Compression)
     case sevenZip
-    /// RAR 4 und 5. Nur lesbar: RAR-Archive schreiben kann libarchive nicht.
+    /// RAR 4 and 5. Read-only: libarchive can't write RAR.
     case rar
 
-    /// Kompression um ein TAR herum.
+    /// Compression wrapped around a TAR.
     public enum Compression: Sendable, Equatable {
         case none, gzip, bzip2, compress, xz
     }
 
-    /// Name des Dokument-Symbols in Zippy/Resources/Icons.
+    /// Name of the document icon in Zippy/Resources/Icons.
     public var iconName: String {
         switch self {
         case .zip: "zip"
@@ -46,10 +46,10 @@ public enum ArchiveFormat: Sendable, Equatable {
         }
     }
 
-    /// Kann Zippy Änderungen in diesem Format speichern?
+    /// Whether Zippy can save changes in this format.
     public var isWritable: Bool { self != .rar }
 
-    /// Für Meldungen: "ZIP", "TAR", "7z", "RAR".
+    /// For messages: "ZIP", "TAR", "7z", "RAR".
     public var displayName: String {
         switch self {
         case .zip: "ZIP"
@@ -60,43 +60,42 @@ public enum ArchiveFormat: Sendable, Equatable {
     }
 }
 
-/// Ein geöffnetes Archiv (ZIP, TAR, 7z oder RAR): Index plus Lesezugriff auf Dateien.
+/// An open archive (ZIP, TAR, 7z or RAR): the index plus read access to its files.
 ///
-/// Lesen: Beim ersten Zugriff wird die Datei vollständig in einen Cache-Ordner
-/// entpackt, danach wird von dort gelesen. So sind beliebige Offsets möglich,
-/// auch wenn der Eintrag komprimiert ist. Der Cache wird bei ``close()`` gelöscht.
-/// Bei komprimierten TARs heißt Entpacken: von vorne bis zur Datei durchlesen.
+/// Reading: on first access a file is extracted completely into a cache directory and
+/// read from there afterwards. That allows arbitrary offsets even for compressed entries.
+/// The cache is deleted by ``close()``. For compressed TARs, extracting means reading
+/// from the start up to the file.
 ///
-/// Thread-sicher: Entpacken passiert nacheinander, Lesen aus dem Cache parallel.
+/// Thread-safe: extraction is serialized, reads from the cache run in parallel.
 public final class Archive: @unchecked Sendable {
     public let source: any ArchiveSource
-    /// Bei geteilten Archiven alle Teile, sonst leer.
+    /// All parts of a split archive; empty otherwise.
     public private(set) var parts: [URL] = []
     public let index: ArchiveIndex
     public let format: ArchiveFormat
-    /// Passwort für verschlüsselte Einträge (ZipCrypto oder AES).
+    /// Password for encrypted entries (ZipCrypto or AES).
     public let password: String?
 
-    /// Enthält das Archiv verschlüsselte Dateien? Bei ZIP sind die Namen nie verschlüsselt,
-    /// Auflisten geht also immer. 7z kann auch die Namen verschlüsseln: Dann wirft schon das
-    /// Öffnen ohne Passwort ``ArchiveError/passwordRequired``. TAR kennt keine Verschlüsselung.
+    /// Whether the archive contains encrypted files. ZIP never encrypts names, so listing
+    /// always works. 7z can encrypt names too, in which case opening without a password
+    /// already throws ``ArchiveError/passwordRequired``. TAR has no encryption.
     public var needsPassword: Bool {
         index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
     }
 
-    /// Kann Zippy Änderungen speichern? Nicht bei RAR, nicht bei geteilten Archiven (die
-    /// Teile müssten neu zerschnitten werden), und nicht bei verschlüsseltem 7z: libarchive
-    /// kann 7z nur entschlüsseln, nicht verschlüsselt schreiben. Unverschlüsselt
-    /// zurückzuschreiben wäre ein stilles Sicherheitsloch.
+    /// Whether Zippy can save changes. Not for RAR, not for split archives (the parts would
+    /// have to be re-split), and not for encrypted 7z: libarchive can decrypt 7z but not
+    /// write it encrypted, and silently writing it back unencrypted would be a security hole.
     public var canSave: Bool {
         format.isWritable && parts.isEmpty && !(format == .sevenZip && needsPassword)
     }
 
-    /// Kann Zippy ein Passwort setzen oder ändern? Nur bei ZIP (AES-256).
+    /// Whether Zippy can set or change a password. ZIP only (AES-256).
     public var canSetPassword: Bool { format == .zip && parts.isEmpty }
 
-    /// Kann Zippy das Passwort entfernen? Bei ZIP und 7z, die Zippy entschlüsseln und
-    /// unverschlüsselt neu schreiben kann.
+    /// Whether Zippy can remove the password: ZIP and 7z, which Zippy can decrypt and
+    /// rewrite unencrypted.
     public var canRemovePassword: Bool {
         (format == .zip || format == .sevenZip) && parts.isEmpty && needsPassword
     }
@@ -105,7 +104,7 @@ public final class Archive: @unchecked Sendable {
     private let lock = NSLock()
     private var extracted: [UInt64: URL] = [:]
 
-    /// Archiv aus einer Datei.
+    /// Opens the archive at `url`, including all parts of a split archive.
     public convenience init(url: URL, password: String? = nil) throws {
         let fileDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
             .contentModificationDate ?? Date()
@@ -116,26 +115,26 @@ public final class Archive: @unchecked Sendable {
             try self.init(source: source, date: fileDate, password: password)
             if parts.count > 1 { self.parts = parts }
         } catch ArchiveError.openFailed(let reason) where Self.isSplitZip(url) {
-            // libarchive liest hier nur diese eine Datei und meldet dann z. B.
-            // "Too small block encountered" – unverständlich für Menschen.
+            // libarchive only reads this one file and then reports something like
+            // "Too small block encountered", which means nothing to people.
             throw ArchiveError.openFailed(String(localized: "split ZIPs (.z01 …) aren’t supported yet (\(reason))", bundle: .module))
         }
     }
 
-    /// Teil eines geteilten ZIPs von Info-ZIP/WinZip ("x.z01" … "x.zip"). Anders als
-    /// `.zip.001` sind das keine einfach zerschnittenen Bytes.
+    /// A part of an Info-ZIP/WinZip split ZIP ("x.z01" … "x.zip"). Unlike `.zip.001`,
+    /// these aren't plain byte slices.
     static func isSplitZip(_ url: URL) -> Bool {
         url.lastPathComponent.lowercased().range(of: #"\.z\d\d$"#, options: .regularExpression) != nil
     }
 
-    /// Archiv aus einer beliebigen Quelle, z. B. einem Block-Gerät.
-    /// `date` gilt für Ordner ohne eigenes Datum.
+    /// Opens an archive from any source, e.g. a block device.
+    /// `date` is used for directories without a date of their own.
     public init(source: any ArchiveSource, date: Date = Date(), password: String? = nil) throws {
         self.source = source
         self.password = password
         (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date, password: password)
-        // Verschlüsselte RAR-Daten erkennt libarchive, entschlüsseln kann es sie nicht.
-        // 7z geht mit scripts/patches/libarchive-7zip-aes.patch.
+        // libarchive detects encrypted RAR data but can't decrypt it.
+        // 7z works thanks to scripts/patches/libarchive-7zip-aes.patch.
         if format == .rar, index.entries.values.contains(where: { $0.isEncrypted }) {
             throw ArchiveError.openFailed(Self.encryptedUnsupported(format))
         }
@@ -145,15 +144,15 @@ public final class Archive: @unchecked Sendable {
 
     deinit { close() }
 
-    /// Name des Volumes: Dateiname ohne Endung, bei "x.tar.gz" ohne beide.
-    /// Bei geteilten Archiven ohne Teil-Endung: "Fotos.part01.rar", "Fotos.7z.001" → "Fotos".
+    /// Volume name: the file name without extension, without both for "x.tar.gz".
+    /// For split archives also without the part suffix: "Photos.part01.rar", "Photos.7z.001" → "Photos".
     public static func volumeName(for url: URL) -> String {
         let name = ArchiveParts.wholeName(of: url) ?? url.lastPathComponent
         let stem = (name as NSString).deletingPathExtension
         return (stem as NSString).pathExtension.lowercased() == "tar" ? (stem as NSString).deletingPathExtension : stem
     }
 
-    /// Löscht den Cache. Danach entpackt ``read(_:offset:length:)`` bei Bedarf neu.
+    /// Deletes the cache. ``read(_:offset:length:)`` extracts again when needed.
     public func close() {
         lock.withLock {
             extracted.removeAll()
@@ -161,15 +160,15 @@ public final class Archive: @unchecked Sendable {
         }
     }
 
-    /// Prüft das Passwort, indem die kleinste verschlüsselte Datei entpackt wird.
-    /// Wirft ``ArchiveError/passwordRequired`` oder ``ArchiveError/wrongPassword``.
+    /// Checks the password by extracting the smallest encrypted file.
+    /// Throws ``ArchiveError/passwordRequired`` or ``ArchiveError/wrongPassword``.
     public func checkPassword() throws {
         let candidates = index.entries.values.filter { $0.isEncrypted && $0.kind == .file && $0.size > 0 }
         guard let smallest = candidates.min(by: { $0.size < $1.size }) else { return }
         _ = try read(smallest.id, offset: 0, length: 1)
     }
 
-    /// Liest bis zu `length` Bytes ab `offset`. Am Dateiende kommen weniger zurück.
+    /// Reads up to `length` bytes from `offset`. Returns fewer at the end of the file.
     public func read(_ id: UInt64, offset: UInt64, length: Int) throws -> Data {
         guard let entry = index.entry(id) else { throw ArchiveError.notFound }
         guard entry.kind == .file else { throw ArchiveError.notAFile }
@@ -182,13 +181,13 @@ public final class Archive: @unchecked Sendable {
         return try handle.read(upToCount: length) ?? Data()
     }
 
-    /// Liest eine ganze Datei. Praktisch für kleine Dateien und Tests.
+    /// Reads a whole file. Handy for small files and tests.
     public func contents(of id: UInt64) throws -> Data {
         guard let entry = index.entry(id) else { throw ArchiveError.notFound }
         return try read(id, offset: 0, length: Int(entry.size))
     }
 
-    // MARK: Entpacken
+    // MARK: Extraction
 
     private func extractedFile(for entry: ArchiveEntry) throws -> URL {
         try lock.withLock {
@@ -201,8 +200,8 @@ public final class Archive: @unchecked Sendable {
             do {
                 try extract(position: position, to: file)
             } catch ArchiveError.readFailed where format == .sevenZip && entry.isEncrypted {
-                // 7z prüft das Passwort nicht: Ein falscher Schlüssel ergibt Datenmüll, den
-                // erst das Entpacken bemerkt ("Decompression failed", Prüfsummenfehler).
+                // 7z doesn't verify the password: a wrong key yields garbage that only
+                // decompression notices ("Decompression failed", checksum errors).
                 throw ArchiveError.wrongPassword
             }
             extracted[entry.id] = file
@@ -215,20 +214,11 @@ public final class Archive: @unchecked Sendable {
         let archive = reader.archive
         defer { reader.close() }
 
-        // ARCHIVE_WARN ist kein Fehler, z. B. wenn ein UTF-8-Name nicht in den
-        // Zeichensatz des Prozesses passt (Hilfsprozess läuft mit "C").
-        func nextHeader() throws {
-            var header: OpaquePointer?
-            let status = archive_read_next_header(archive, &header)
-            guard status == ARCHIVE_OK || status == ARCHIVE_WARN else {
-                throw ArchiveError.readFailed(Self.message(archive))
-            }
-        }
         for _ in 0..<position {
-            try nextHeader()
+            try reader.nextHeader()
             archive_read_data_skip(archive)
         }
-        try nextHeader()
+        try reader.nextHeader()
 
         guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
             throw ArchiveError.readFailed(String(localized: "can’t create the cache file", bundle: .module))
@@ -236,7 +226,7 @@ public final class Archive: @unchecked Sendable {
         let output = try FileHandle(forWritingTo: file)
         defer { try? output.close() }
 
-        var buffer = [UInt8](repeating: 0, count: 256 * 1024)
+        var buffer = [UInt8](repeating: 0, count: ArchiveReader.bufferSize)
         while true {
             let count = buffer.withUnsafeMutableBytes {
                 archive_read_data(archive, $0.baseAddress, $0.count)
@@ -255,14 +245,15 @@ public final class Archive: @unchecked Sendable {
         }
     }
 
-    // MARK: Index aufbauen
+    // MARK: Building the index
 
+    // File type bits of a mode (AE_IFMT, AE_IFDIR, …); also used when writing.
     private static let typeMask: UInt32 = 0o170000
-    private static let typeDirectory: UInt32 = 0o040000
-    private static let typeSymlink: UInt32 = 0o120000
-    private static let typeRegular: UInt32 = 0o100000
+    static let typeDirectory: UInt32 = 0o040000
+    static let typeSymlink: UInt32 = 0o120000
+    static let typeRegular: UInt32 = 0o100000
 
-    // archive.h: ARCHIVE_FORMAT_BASE_MASK, ARCHIVE_FORMAT_TAR, ARCHIVE_FORMAT_ZIP
+    // archive.h: ARCHIVE_FORMAT_BASE_MASK, ARCHIVE_FORMAT_TAR, ARCHIVE_FORMAT_7ZIP, ARCHIVE_FORMAT_RAR(_V5)
     private static let formatMask: Int32 = 0xff0000
     private static let formatTar: Int32 = 0x30000
     private static let format7Zip: Int32 = 0xE0000
@@ -273,7 +264,7 @@ public final class Archive: @unchecked Sendable {
         String(localized: "encrypted \(format.displayName) archives aren’t supported yet", bundle: .module)
     }
 
-    /// `password` braucht es nur bei 7z mit verschlüsselten Dateinamen.
+    /// `password` is only needed for 7z with encrypted file names.
     private static func buildIndex(source: any ArchiveSource, rootDate: Date,
                                    password: String?) throws -> (ArchiveIndex, ArchiveFormat) {
         let reader = try ArchiveReader(source: source, password: password)
@@ -289,7 +280,7 @@ public final class Archive: @unchecked Sendable {
             let status = archive_read_next_header(archive, &header)
             if status == ARCHIVE_EOF { break }
             guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
-                // Verschlüsselte Dateinamen: 7z meldet "Passphrase required …" bzw. "Incorrect
+                // Encrypted file names: 7z reports "Passphrase required …" or "Incorrect
                 // passphrase"; RAR "RAR encryption support unavailable." / "Encryption is not supported"
                 let reason = message(archive)
                 if reason.localizedCaseInsensitiveContains("passphrase required") {
@@ -298,8 +289,8 @@ public final class Archive: @unchecked Sendable {
                 if reason.localizedCaseInsensitiveContains("incorrect passphrase") {
                     throw ArchiveError.wrongPassword
                 }
-                // 7z mit verschlüsselten Dateinamen und falschem Passwort: Der entschlüsselte
-                // Kopf ist Datenmüll, libarchive meldet einen Entpackfehler.
+                // 7z with encrypted file names and a wrong password: the decrypted header is
+                // garbage and libarchive reports a decompression error.
                 if password != nil, detectFormat(archive) == .sevenZip {
                     throw ArchiveError.wrongPassword
                 }
@@ -322,12 +313,12 @@ public final class Archive: @unchecked Sendable {
             case typeDirectory: kind = .directory
             case typeSymlink: kind = .symlink
             case typeRegular, 0: kind = .file
-            default: continue   // Geräte, FIFOs, Sockets aus TARs
+            default: continue   // devices, FIFOs, sockets from TARs
             }
 
             var permissions = UInt16(archive_entry_perm(header) & 0o777)
             if permissions == 0 { permissions = kind == .directory ? 0o755 : 0o644 }
-            permissions |= kind == .directory ? 0o500 : 0o400   // Besitzer darf immer lesen
+            permissions |= kind == .directory ? 0o500 : 0o400   // the owner can always read
 
             let date = archive_entry_mtime_is_set(header) != 0
                 ? Date(timeIntervalSince1970: TimeInterval(archive_entry_mtime(header))
@@ -339,13 +330,13 @@ public final class Archive: @unchecked Sendable {
                 path: path, kind: kind, size: size, position: position, permissions: permissions, date: date,
                 symlinkTarget: kind == .symlink ? Name(utf8: archive_entry_symlink_utf8(header),
                                                        raw: archive_entry_symlink(header)) : nil,
-                // TAR-Hardlink ohne eigene Daten: Inhalt kommt vom Ziel
+                // TAR hard link without data of its own: contents come from the target
                 hardlink: kind == .file && size == 0 ? Name(utf8: nil, raw: archive_entry_hardlink(header)) : nil,
                 isEncrypted: archive_entry_is_encrypted(header) != 0))
         }
 
-        // Namen, die kein UTF-8 sind (ZIPs ohne UTF-8-Kennung, alte TARs): Kodierung raten,
-        // einmal für das ganze Archiv
+        // Names that aren't UTF-8 (ZIPs without the UTF-8 flag, old TARs): guess the
+        // encoding once for the whole archive
         let undecoded = records.flatMap { [$0.path, $0.symlinkTarget, $0.hardlink] }.compactMap { $0?.bytes }
         let encoding = undecoded.isEmpty ? String.Encoding.utf8 : NameEncoding.guess(for: undecoded)
         func text(_ name: Name) -> String {
@@ -357,7 +348,7 @@ public final class Archive: @unchecked Sendable {
 
         for record in records {
             guard let components = ArchiveIndex.sanitize(text(record.path)) else {
-                continue   // leerer oder unsicherer Pfad (z. B. "../")
+                continue   // empty or unsafe path (e.g. "../")
             }
             var size = record.size
             var dataPosition = record.position
@@ -373,16 +364,16 @@ public final class Archive: @unchecked Sendable {
                          symlinkTarget: record.symlinkTarget.map(text),
                          isEncrypted: record.isEncrypted, archiveIndex: dataPosition)
         }
-        if position == 0 { format = detectFormat(archive) }   // leeres Archiv
+        if position == 0 { format = detectFormat(archive) }   // empty archive
         return (index, format)
     }
 
-    /// Ein Name aus dem Archiv: schon lesbar, oder rohe Bytes in unbekannter Kodierung.
+    /// A name from the archive: either readable already, or raw bytes in an unknown encoding.
     private enum Name {
         case text(String)
         case bytes(Data)
 
-        /// libarchive liefert UTF-8, wenn es den Namen umwandeln konnte, sonst nur die Bytes.
+        /// libarchive returns UTF-8 if it could convert the name, otherwise only the raw bytes.
         init?(utf8: UnsafePointer<CChar>?, raw: UnsafePointer<CChar>?) {
             if let utf8 {
                 self = .text(String(cString: utf8))
@@ -400,7 +391,7 @@ public final class Archive: @unchecked Sendable {
         }
     }
 
-    /// Ein Eintrag, wie er beim ersten Durchgang gelesen wird; Namen werden danach dekodiert.
+    /// An entry as read in the first pass; names are decoded afterwards.
     private struct RawEntry {
         let path: Name
         let kind: ArchiveEntry.Kind
@@ -435,21 +426,24 @@ public final class Archive: @unchecked Sendable {
     // MARK: libarchive
 
     static func message(_ archive: OpaquePointer) -> String {
-        archive_error_string(archive).map { String(cString: $0) } ?? "unbekannter Fehler"
+        archive_error_string(archive).map { String(cString: $0) } ?? String(localized: "unknown error", bundle: .module)
     }
 }
 
-/// libarchive wandelt Namen über die Locale des Prozesses um. Apps und
-/// Kommandozeilenprogramme laufen ohne Einstellung mit "C": Dann scheitert jeder
-/// UTF-8-Name, libarchive meldet nur eine Warnung und liefert keinen Namen.
-/// Einmalig für den ganzen Prozess, Zippy hat sonst nichts Locale-Abhängiges.
+/// libarchive converts names using the process locale. Apps and command-line tools run
+/// with "C" unless configured otherwise, and then every UTF-8 name fails: libarchive only
+/// reports a warning and returns no name. Set once for the whole process; nothing else in
+/// Zippy depends on the locale.
 let utf8Locale: Void = {
     setlocale(LC_CTYPE, "UTF-8")
 }()
 
-/// Ein offener libarchive-Lesevorgang über eine ``ArchiveSource``.
-/// Jeder Vorgang hat seine eigene Leseposition; die Quelle wird nur positionsbezogen gelesen.
+/// An open libarchive read pass over an ``ArchiveSource``.
+/// Each pass has its own position; the source itself is only read with explicit offsets.
 final class ArchiveReader {
+    /// Size of the read buffers used with libarchive.
+    static let bufferSize = 256 * 1024
+
     let archive: OpaquePointer
     private let state: Unmanaged<State>
     private var closed = false
@@ -457,7 +451,7 @@ final class ArchiveReader {
     final class State {
         let source: any ArchiveSource
         var position: Int64 = 0
-        let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: 256 * 1024, alignment: 16)
+        let buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: ArchiveReader.bufferSize, alignment: 16)
         init(source: any ArchiveSource) { self.source = source }
         deinit { buffer.deallocate() }
     }
@@ -521,10 +515,21 @@ final class ArchiveReader {
 
     deinit { close() }
 
-    /// Dasselbe Passwort in den Byte-Folgen, die ZIP-Programme verwenden: UTF-8
-    /// zusammengesetzt und zerlegt (macOS-Werkzeuge schicken oft "o" + "¨" statt "ö"),
-    /// dazu Windows-1252 und DOS-Codepage 437 für alte ZipCrypto-Archive aus Windows.
-    /// libarchive probiert alle der Reihe nach.
+    /// Advances to the next header. ARCHIVE_WARN is not an error, e.g. when a UTF-8 name
+    /// doesn't fit the process character set.
+    @discardableResult
+    func nextHeader() throws -> OpaquePointer {
+        var header: OpaquePointer?
+        let status = archive_read_next_header(archive, &header)
+        guard status == ARCHIVE_OK || status == ARCHIVE_WARN, let header else {
+            throw ArchiveError.readFailed(Archive.message(archive))
+        }
+        return header
+    }
+
+    /// The same password in the byte sequences ZIP tools use: precomposed and decomposed
+    /// UTF-8 (macOS tools often send "o" + "¨" instead of "ö"), plus Windows-1252 and DOS
+    /// code page 437 for old ZipCrypto archives from Windows. libarchive tries them in order.
     static func passwordVariants(_ password: String) -> [[CChar]] {
         let dos = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(
             CFStringEncoding(CFStringEncodings.dosLatinUS.rawValue)))

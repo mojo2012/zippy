@@ -1,12 +1,12 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// FUSE-Header liegen in Sources/CFuseT/include/fuse (aus FUSE-T, LGPL).
-// Die Bibliothek wird erst zur Laufzeit geladen (dlopen), damit Zippy
-// ohne FUSE-T startet und einen Hinweis zeigen kann.
+// The FUSE headers live in Sources/CFuseT/include/fuse (from FUSE-T, LGPL).
+// The library itself is only loaded at runtime (dlopen), so Zippy can launch
+// without FUSE-T installed and tell the user what is missing.
 let package = Package(
     name: "FuseMount",
-    defaultLocalization: "en",   // Meldungen: Sources/FuseMount/Resources/Localizable.xcstrings
+    defaultLocalization: "en",   // messages: Sources/FuseMount/Resources/Localizable.xcstrings
     platforms: [.macOS("15.4")],
     products: [.library(name: "FuseMount", targets: ["FuseMount"])],
     dependencies: [.package(path: "../ArchiveCore")],

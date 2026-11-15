@@ -1,21 +1,21 @@
 import Foundation
 
-/// Erkennt geteilte Archive und findet ihre Teile in der richtigen Reihenfolge.
+/// Detects split archives and finds their parts in the right order.
 ///
-/// - `Name.part1.rar`, `Name.part01.rar` …  (RAR ab Version 3)
-/// - `Name.rar`, `Name.r00`, `Name.r01` …  (älteres RAR-Schema)
-/// - `Name.7z.001`, `Name.zip.001` …       (von 7-Zip zerschnitten, beliebiges Format)
+/// - `Name.part1.rar`, `Name.part01.rar` …  (RAR 3 and later)
+/// - `Name.rar`, `Name.r00`, `Name.r01` …  (older RAR scheme)
+/// - `Name.7z.001`, `Name.zip.001` …       (split by 7-Zip, any format)
 ///
-/// Egal welcher Teil geöffnet wird: Es zählt immer der ganze Satz, beginnend beim ersten.
-/// `Name.z01` (geteilte ZIPs von Info-ZIP/WinZip) ist anders aufgebaut und geht nicht.
+/// Whichever part is opened, the whole set counts, starting with the first part.
+/// `Name.z01` (Info-ZIP/WinZip split ZIPs) is structured differently and isn't supported.
 public enum ArchiveParts {
-    /// Alle Teile, erster zuerst. `nil`, wenn `url` kein Teil eines geteilten Archivs ist.
-    /// Wirft, wenn ein Teil fehlt.
+    /// All parts, first part first. `nil` if `url` isn't part of a split archive.
+    /// Throws if a part is missing.
     public static func parts(for url: URL) throws -> [URL]? {
         guard let set = PartSet(url) else { return nil }
         let directory = url.deletingLastPathComponent()
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        // Gefundene Teile nach Nummer; Groß-/Kleinschreibung wie im Finder egal
+        // Parts found, by number; case-insensitive like Finder
         var numbered: [Int: String] = [:]
         for name in names {
             if let number = set.number(of: name) { numbered[number] = name }
@@ -31,13 +31,13 @@ public enum ArchiveParts {
         return result
     }
 
-    /// Der erste Teil, über den das Archiv geöffnet und gemerkt wird; sonst `url` selbst.
+    /// The first part, through which the archive is opened and remembered; otherwise `url` itself.
     public static func firstPart(of url: URL) -> URL {
         (try? parts(for: url))??.first ?? url
     }
 
-    /// Dateiname, als wäre es ein ungeteiltes Archiv: "Fotos.part01.rar" → "Fotos.rar",
-    /// "Fotos.r00" → "Fotos.rar", "Fotos.7z.001" → "Fotos.7z".
+    /// File name as if it were an unsplit archive: "Photos.part01.rar" → "Photos.rar",
+    /// "Photos.r00" → "Photos.rar", "Photos.7z.001" → "Photos.7z".
     static func wholeName(of url: URL) -> String? {
         guard let set = PartSet(url) else { return nil }
         switch set.kind {
@@ -70,8 +70,8 @@ public enum ArchiveParts {
             }
         }
 
-        /// Nummer eines Teils dieses Satzes. Beim alten RAR-Schema ist `.rar` der erste (0),
-        /// `.r00` der zweite (1) usw.
+        /// Number of a part of this set. In the old RAR scheme `.rar` is the first (0),
+        /// `.r00` the second (1) and so on.
         func number(of name: String) -> Int? {
             let lower = name.lowercased(), base = self.base.lowercased()
             switch kind {

@@ -1,47 +1,40 @@
 import AppKit
 import ArchiveCore
 
-/// Besorgt das Passwort für ein Archiv, bevor es gemountet wird:
-/// 1. Archiv ohne verschlüsselte Dateien → kein Passwort nötig
-/// 2. Passwort im Schlüsselbund und es passt → nehmen
-/// 3. sonst nachfragen, bis es passt oder abgebrochen wird
+/// Obtains the password for an archive before it is mounted:
+/// 1. archive without encrypted files → no password needed
+/// 2. password in the keychain and it's correct → use it
+/// 3. otherwise ask until it's correct or the user cancels
 ///
-/// Geprüft wird jedes Passwort, indem die kleinste verschlüsselte Datei entpackt
-/// wird. So landet ein falsches Passwort nie im Volume.
+/// Every password is verified by extracting the smallest encrypted file, so a
+/// wrong password never ends up in a volume.
 @MainActor
 enum PasswordPrompt {
-    static let keychainService = "Zippy"
-
     struct Cancelled: Error {}
 
-    /// `nil`, wenn das Archiv kein Passwort braucht. Wirft ``Cancelled`` bei Abbruch.
+    /// `nil` if the archive needs no password. Throws ``Cancelled`` if the user cancels.
     static func password(for archive: URL) async throws -> String? {
         let needsPassword = try await Task.detached {
             do {
                 return try Archive(url: archive).needsPassword
             } catch ArchiveError.passwordRequired {
-                return true   // 7z mit verschlüsselten Dateinamen: ohne Passwort nicht einmal auflistbar
+                return true   // 7z with encrypted file names: can't even be listed without a password
             }
         }.value
         guard needsPassword else { return nil }
-        let account = archive.standardizedFileURL.path
 
-        if let stored = Keychain.load(service: keychainService, account: account),
-           await isCorrect(stored, for: archive) {
+        if let stored = storedPassword(for: archive), await isCorrect(stored, for: archive) {
             return stored
         }
 
-        var message: String?
+        var problem: String?
         while true {
-            guard let (password, remember) = ask(archive: archive, problem: message) else { throw Cancelled() }
+            guard let (password, remember) = ask(archive: archive, problem: problem) else { throw Cancelled() }
             if await isCorrect(password, for: archive) {
-                if remember {
-                    Keychain.save(password, service: keychainService, account: account,
-                                  label: "Zippy: \(archive.lastPathComponent)")
-                }
+                if remember { storePassword(password, for: archive) }
                 return password
             }
-            message = String(localized: "The password is wrong. Please try again.")
+            problem = String(localized: "The password is wrong. Please try again.")
         }
     }
 
@@ -56,8 +49,8 @@ enum PasswordPrompt {
         }.value
     }
 
-    /// Dialog mit Passwortfeld und „Im Schlüsselbund sichern“.
-    private static func ask(archive: URL, problem: String?) -> (String, Bool)? {
+    /// Alert with a password field and a "Remember in Keychain" checkbox.
+    private static func ask(archive: URL, problem: String?) -> (password: String, remember: Bool)? {
         NSApp.activate()
         let alert = NSAlert()
         alert.messageText = String(localized: "“\(archive.lastPathComponent)” is password-protected.")
@@ -80,7 +73,7 @@ enum PasswordPrompt {
         return (field.stringValue, remember.state == .on)
     }
 
-    /// Neues Passwort, zweimal eingegeben. `nil` bei Abbruch.
+    /// Asks for a new password, entered twice. `nil` if the user cancels.
     static func askNewPassword(archive: URL) -> String? {
         var problem: String?
         while true {
@@ -112,5 +105,25 @@ enum PasswordPrompt {
                 return first.stringValue
             }
         }
+    }
+
+    // MARK: Remembered passwords
+
+    private static let keychainService = "Zippy"
+
+    /// Keychain items are keyed by the archive's standardized path.
+    private static func keychainAccount(for archive: URL) -> String { archive.standardizedFileURL.path }
+
+    static func storedPassword(for archive: URL) -> String? {
+        Keychain.load(service: keychainService, account: keychainAccount(for: archive))
+    }
+
+    static func storePassword(_ password: String, for archive: URL) {
+        Keychain.save(password, service: keychainService, account: keychainAccount(for: archive),
+                      label: "Zippy: \(archive.lastPathComponent)")
+    }
+
+    static func forgetPassword(for archive: URL) {
+        Keychain.delete(service: keychainService, account: keychainAccount(for: archive))
     }
 }

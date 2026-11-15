@@ -1,29 +1,29 @@
 import Foundation
 
-/// Die austauschbare Stelle zwischen App und Dateisystem-Technik.
+/// The seam between the app and the file system backend.
 ///
-/// Die App (``AppDelegate``) nimmt Archive entgegen, ruft ``mount(_:)`` auf,
-/// öffnet den Mountpunkt im Finder und beendet sich. Wie das Volume entsteht,
-/// weiß nur die Umsetzung:
+/// The app (``AppDelegate``) receives archives, calls ``mount(_:password:)``,
+/// opens the mount point in Finder and quits. Only the implementation knows how
+/// the volume comes about:
 ///
-/// - `Zippy/FUSE`: FUSE-T oder macFUSE, ein Hilfsprozess pro Volume
-/// - `Zippy/FSKit`: Zippy-Image + DiskImageMounter + FSKit-Erweiterung
+/// - `Zippy/FUSE`: FUSE-T or macFUSE, one helper process per volume
+/// - `Zippy/FSKit`: Zippy image + DiskImageMounter + FSKit extension
 ///
-/// Welche Umsetzung in der App steckt, entscheidet allein das Target
-/// (``Variant/makeMounter()``), nicht der Code.
+/// The target alone decides which implementation ships in the app
+/// (``Variant/makeMounter()``), not the code.
 @MainActor
 protocol ArchiveMounting {
-    /// Fehlt etwas Installierbares (z. B. FUSE-T), Name und Download-Adresse.
+    /// Name and download URL of a missing installable component (e.g. FUSE-T), if any.
     var missingComponent: (name: String, downloadURL: URL)? { get }
 
-    /// Reste früherer Läufe aufräumen. Wird vor dem ersten ``mount(_:password:)`` aufgerufen.
+    /// Cleans up leftovers from earlier runs. Called before the first ``mount(_:password:)``.
     func cleanUp()
 
-    /// Mountpunkt, falls dieses Archiv schon gemountet ist (dann ohne Passwortabfrage öffnen).
+    /// The mount point if this archive is already mounted (then it is opened without a password prompt).
     func mountedVolume(for archive: URL) -> URL?
 
-    /// Mountet ein Archiv und liefert den Mountpunkt, sobald das Volume da ist.
-    /// `password` ist bereits geprüft (``PasswordPrompt``), nil bei unverschlüsselten Archiven.
+    /// Mounts an archive and returns the mount point once the volume is available.
+    /// `password` has already been verified (``PasswordPrompt``); nil for unencrypted archives.
     func mount(_ archive: URL, password: String?) async throws -> URL
 }
 

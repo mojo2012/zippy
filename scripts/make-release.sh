@@ -1,12 +1,12 @@
 #!/bin/zsh
-# Baut Zippy für die Weitergabe: Release, universal (Apple Silicon + Intel), ad hoc signiert,
-# verpackt als DMG mit Programme-Verknüpfung und Installationshinweisen.
+# Builds Zippy for distribution: Release, universal (Apple Silicon + Intel), signed ad hoc,
+# packaged as a DMG with an Applications link and installation notes.
 #
 #   ./scripts/make-release.sh            → build/release/Zippy-<version>.dmg (+ .sha256)
 #
-# Ohne bezahlten Developer-Account gibt es weder Developer-ID-Signatur noch Notarisierung:
-# Gatekeeper blockiert die App beim ersten Start, bis man sie in den Systemeinstellungen
-# unter „Datenschutz & Sicherheit“ freigibt (steht in „Read Me First.txt“ im DMG).
+# Without a paid Developer account there is no Developer ID signature or notarization:
+# Gatekeeper blocks the app on first launch until it is allowed in System Settings >
+# Privacy & Security (explained in "Read Me First.txt" inside the DMG).
 set -euo pipefail
 
 ROOT="${0:A:h:h}"
@@ -14,7 +14,7 @@ cd "$ROOT"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
 VERSION=$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"/\1/p' project.yml)
-[[ -n "$VERSION" ]] || { echo "MARKETING_VERSION nicht gefunden"; exit 1 }
+[[ -n "$VERSION" ]] || { echo "MARKETING_VERSION not found in project.yml"; exit 1 }
 OUT="$ROOT/build/release"
 DERIVED="$ROOT/build/release-derived"
 STAGE="$OUT/stage"
@@ -23,13 +23,13 @@ DMG="$OUT/Zippy-$VERSION.dmg"
 [[ -d ArchiveCore/Vendor/CArchive.xcframework ]] || ./scripts/build-libarchive.sh
 xcodegen generate --quiet
 
-echo "Baue Zippy $VERSION (Release, arm64 + x86_64) …"
+echo "Building Zippy $VERSION (Release, arm64 + x86_64) …"
 xcodebuild -project Zippy.xcodeproj -scheme Zippy -configuration Release \
   -derivedDataPath "$DERIVED" ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
   CODE_SIGNING_ALLOWED=NO build -quiet
 APP="$DERIVED/Build/Products/Release/Zippy.app"
 
-# Ad hoc, mit Hardened Runtime; disable-library-validation, weil Zippy libfuse-t lädt.
+# Ad hoc, with hardened runtime; disable-library-validation because Zippy loads libfuse-t.
 codesign -f -s - --options runtime --entitlements Zippy/Zippy.entitlements "$APP"
 codesign --verify --strict --deep "$APP"
 lipo -info "$APP/Contents/MacOS/Zippy"
@@ -65,11 +65,12 @@ On macOS 26 or later, Zippy asks once for an administrator password to set up
 the folder /Volumes/Zippy, so archives appear as drives in the Finder sidebar.
 EOF
 
-# DMG mit dem App-Symbol als Volume-Symbol: erst beschreibbar, dann komprimiert
+# DMG with the app icon as volume icon: create read-write first, then compress
 RW="$OUT/rw.dmg"
 hdiutil create -quiet -volname "Zippy $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDRW "$RW"
 MOUNT=$(hdiutil attach -nobrowse -noautoopen "$RW" | sed -n 's|^/dev/[^[:space:]]*[[:space:]]*Apple_HFS[[:space:]]*||p')
 cp Zippy/Resources/Icons/AppIcon.icns "$MOUNT/.VolumeIcon.icns"
+# Set the "has custom icon" Finder flag on the volume root
 xattr -wx com.apple.FinderInfo 0000000000000000040000000000000000000000000000000000000000000000 "$MOUNT"
 hdiutil detach -quiet "$MOUNT"
 hdiutil convert -quiet "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG"
@@ -77,5 +78,5 @@ rm -f "$RW"
 rm -rf "$STAGE"
 
 (cd "$OUT" && shasum -a 256 "${DMG:t}" > "${DMG:t}.sha256")
-echo "Fertig: $DMG"
+echo "Done: $DMG"
 cat "$DMG.sha256"

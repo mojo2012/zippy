@@ -1,7 +1,7 @@
 import ExtensionFoundation
 import FSKit
 
-/// Einstiegspunkt der FSKit-Erweiterung.
+/// Entry point of the FSKit extension.
 @main
 struct ZippyFSExtension: UnaryFileSystemExtension {
     let fileSystem = ZipFileSystem()

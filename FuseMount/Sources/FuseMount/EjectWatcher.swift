@@ -1,15 +1,15 @@
 import DiskArbitration
 import Foundation
 
-/// Macht „Auswerfen“ im Finder für macFUSE-Volumes möglich.
+/// Makes "Eject" in Finder work for macFUSE volumes.
 ///
-/// macFUSE (FSKit, macOS 15) mountet über ein Hilfs-Block-Gerät, ohne dass
-/// DiskArbitration den Mount kennt. Finder und `diskutil` scheitern dann mit
-/// „not mounted“. Dieser Wächter meldet sich bei DiskArbitration für genau dieses
-/// Gerät und lässt bei einer Auswurf-Anfrage über macFUSE aushängen (`onEject`).
-/// Danach läuft der Auswurf normal weiter.
+/// macFUSE (FSKit, macOS 15) mounts via a helper block device whose mount
+/// DiskArbitration doesn't know about, so Finder and `diskutil` fail with
+/// "not mounted". This watcher registers with DiskArbitration for exactly that
+/// device and, when an eject is requested, unmounts through macFUSE (`onEject`).
+/// The eject then proceeds normally.
 final class EjectWatcher: @unchecked Sendable {
-    /// Das Hilfs-Block-Gerät von macFUSE, z. B. "disk4".
+    /// macFUSE's helper block device, e.g. "disk4".
     let bsdName: String
     private let session: DASession
     private let queue = DispatchQueue(label: "Zippy EjectWatcher")
@@ -24,7 +24,7 @@ final class EjectWatcher: @unchecked Sendable {
         }
     }
 
-    /// `nil`, wenn das Gerät des Mountpunkts nicht ermittelt werden kann.
+    /// `nil` if the mount point's device can't be determined.
     init?(mountPoint: String, onEject: @escaping @Sendable () -> Void) {
         guard let bsdName = Self.bsdName(of: mountPoint),
               let session = DASessionCreate(kCFAllocatorDefault) else { return nil }
@@ -37,13 +37,13 @@ final class EjectWatcher: @unchecked Sendable {
         let handler: DADiskUnmountApprovalCallback = { _, context in
             guard let context else { return nil }
             let box = Unmanaged<Box>.fromOpaque(context).takeUnretainedValue()
-            log.info("Auswurf angefragt: \(box.mountPoint, privacy: .public)")
-            box.onEject()   // aushängen, beendet die FUSE-Schleife
-            return nil      // keine Einwände
+            log.info("Eject requested: \(box.mountPoint, privacy: .public)")
+            box.onEject()   // unmounting ends the FUSE loop
+            return nil      // no objection
         }
         DARegisterDiskUnmountApprovalCallback(session, match, handler, context.toOpaque())
         DARegisterDiskEjectApprovalCallback(session, match, handler, context.toOpaque())
-        log.info("Auswurf-Wächter für \(bsdName, privacy: .public)")
+        log.info("Watching \(bsdName, privacy: .public) for eject")
     }
 
     deinit {
@@ -51,9 +51,9 @@ final class EjectWatcher: @unchecked Sendable {
         context.release()
     }
 
-    /// Löst das Hilfs-Block-Gerät, falls es nach dem Aushängen noch angehängt ist.
-    /// Wird per unmount(2) statt über den Finder ausgehängt, bleibt es sonst liegen
-    /// und blockiert weitere macFUSE-Mounts.
+    /// Detaches the helper block device if it is still attached after unmounting.
+    /// When unmounted via unmount(2) rather than Finder it would otherwise linger
+    /// and block further macFUSE mounts.
     func detachDevice() {
         let detach = Process()
         detach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
@@ -62,13 +62,13 @@ final class EjectWatcher: @unchecked Sendable {
         detach.standardError = FileHandle.nullDevice
         try? detach.run()
         detach.waitUntilExit()
-        log.info("Gerät gelöst: \(self.bsdName, privacy: .public) (\(detach.terminationStatus))")
+        log.info("Detached device \(self.bsdName, privacy: .public) (\(detach.terminationStatus))")
     }
 
     /// "/dev/disk4" → "disk4"
     private static func bsdName(of mountPoint: String) -> String? {
         guard let device = FuseVolume.mountedFileSystems().first(where: { $0.mountPoint == mountPoint })?.device,
               device.hasPrefix("/dev/") else { return nil }
-        return String(device.dropFirst(5))
+        return String(device.dropFirst("/dev/".count))
     }
 }

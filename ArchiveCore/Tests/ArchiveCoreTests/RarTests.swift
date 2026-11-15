@@ -2,22 +2,16 @@ import Foundation
 import Testing
 @testable import ArchiveCore
 
-/// RAR 4 und 5: nur lesen. Testarchive aus libarchive (Fixtures), verglichen mit dem,
-/// was das System-tar daraus entpackt.
+/// RAR 4 and 5: read only. Test archives from libarchive (Fixtures), compared with
+/// what the system tar extracts from them.
 @Suite struct RarTests {
     let dir: URL
 
     init() throws {
-        dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("zippy-rar-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        dir = try makeTempDir("rar")
     }
 
-    private func fixture(_ name: String) throws -> URL {
-        try #require(Bundle.module.url(forResource: name, withExtension: "rar", subdirectory: "Fixtures"))
-    }
-
-    /// Entpackt mit /usr/bin/tar und vergleicht jede Datei und jeden Link mit dem Archiv.
+    /// Extracts with /usr/bin/tar and compares every file and link with the archive.
     @Test(arguments: ["rar", "rar_compress_normal", "rar5_multiple_files", "rar5_solid",
                       "rar5_unicode", "rar5_symlink", "rar5_stored"])
     func matchesSystemTar(_ name: String) throws {
@@ -28,18 +22,13 @@ import Testing
 
         let out = dir.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
-        let tar = Process()
-        tar.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        tar.arguments = ["-xf", url.path, "-C", out.path]
-        try tar.run()
-        tar.waitUntilExit()
-        #expect(tar.terminationStatus == 0)
+        try run("/usr/bin/tar", ["-xf", url.path, "-C", out.path])
 
-        let paths = try #require(FileManager.default.subpathsOfDirectory(atPath: out.path) as [String]?)
+        let paths = try FileManager.default.subpathsOfDirectory(atPath: out.path)
         #expect(!paths.isEmpty)
         for path in paths {
             let file = out.appendingPathComponent(path)
-            let entry = try #require(archive.index.lookup(path: path), "fehlt: \(path)")
+            let entry = try #require(archive.index.lookup(path: path), "missing: \(path)")
             let values = try file.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
             if values.isSymbolicLink == true {
                 #expect(entry.symlinkTarget == (try FileManager.default.destinationOfSymbolicLink(atPath: file.path)))
@@ -54,10 +43,10 @@ import Testing
     @Test func isReadOnly() throws {
         let editable = EditableArchive(archive: try Archive(url: fixture("rar5_stored")))
         #expect(editable.isReadOnly)
-        #expect(throws: POSIXError(.EROFS)) { try editable.createFile(at: "neu.txt") }
+        #expect(throws: POSIXError(.EROFS)) { try editable.createFile(at: "new.txt") }
     }
 
-    /// Verschlüsselte Daten oder Dateinamen kann libarchive bei RAR nicht entschlüsseln.
+    /// libarchive cannot decrypt encrypted RAR data or file names.
     @Test(arguments: ["rar4_encrypted", "rar5_encrypted", "rar4_encrypted_filenames", "rar5_encrypted_filenames"])
     func rejectsEncrypted(_ name: String) throws {
         #expect(throws: ArchiveError.openFailed(Archive.encryptedUnsupported(.rar))) {
@@ -66,6 +55,6 @@ import Testing
     }
 
     @Test func volumeName() {
-        #expect(Archive.volumeName(for: URL(fileURLWithPath: "/tmp/Fotos.rar")) == "Fotos")
+        #expect(Archive.volumeName(for: URL(fileURLWithPath: "/tmp/Photos.rar")) == "Photos")
     }
 }

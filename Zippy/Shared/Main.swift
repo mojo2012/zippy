@@ -1,7 +1,7 @@
 import AppKit
 
-/// Einstieg. Die Variante (FUSE oder FSKit) darf vorher Kommandozeilen-Modi
-/// übernehmen, z. B. den FUSE-Hilfsprozess (`--serve`).
+/// Entry point. The variant (FUSE or FSKit) gets the first chance to handle
+/// command-line modes, e.g. the FUSE helper process (`--serve`).
 @main
 enum Main {
     static func main() {

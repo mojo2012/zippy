@@ -2,25 +2,25 @@ import AppKit
 import FSKit
 import FuseMount
 
-/// Einstellungen, wenn Zippy ohne Archiv gestartet wird: welche Technik die Laufwerke
-/// bereitstellt, und was davon installiert ist. Schließen beendet die App.
+/// Settings shown when Zippy is launched without an archive: which technology provides
+/// the drives, and which of them are installed. Closing the window quits the app.
 ///
-/// Ein eigener Bereich in den Systemeinstellungen (`.prefPane`) ging auch, zeigte nach
-/// dem Wegklicken und Zurückkommen aber nur noch eine leere Fläche.
+/// A System Settings pane (`.prefPane`) worked too, but went blank after switching
+/// away and coming back.
 ///
-/// Texte auf Englisch, übersetzt in `Zippy/Resources/Localizable.xcstrings`.
+/// Strings are English, translated in `Zippy/Resources/Localizable.xcstrings`.
 @MainActor
 final class SettingsWindow: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let onClose: () -> Void
     private var radios: [(button: NSButton, backend: FuseBackend?)] = []
-    /// Wird bei jedem ``refresh()`` neu gefüllt.
+    /// Rebuilt on every ``refresh()``.
     private let statusContainer = NSStackView()
     private var statusRows: [(ok: Bool?, text: String, button: (String, Selector)?)] = []
     private let defaults = UserDefaults.standard
 
-    /// Breite des Inhalts (ohne Rand). Mehrzeilige Texte brauchen eine bekannte Breite
-    /// zum Umbrechen, darum fest; die Statustexte bekommen, was neben Symbol und Knopf bleibt.
+    /// Content width (without margins). Wrapping text needs a known width, hence fixed;
+    /// status texts get whatever is left next to the symbol and button.
     private let contentWidth: CGFloat = 540
 
     init(onClose: @escaping () -> Void) {
@@ -31,8 +31,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         window.title = "Zippy"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        // Über einen View-Controller bestimmt Auto Layout die Fenstergröße aus dem Inhalt,
-        // mit gleichem Rand links und rechts
+        // With a view controller, Auto Layout sizes the window from its content,
+        // with equal margins left and right
         let controller = NSViewController()
         controller.view = makeContent()
         window.contentViewController = controller
@@ -47,10 +47,10 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) { onClose() }
 
-    /// Zurück in die App geholt (z. B. nach den Systemeinstellungen): Status neu prüfen.
+    /// Back in the app (e.g. from System Settings): check the status again.
     func windowDidBecomeKey(_ notification: Notification) { refresh() }
 
-    // MARK: Inhalt
+    // MARK: Content
 
     private func makeContent() -> NSView {
         let content = NSStackView()
@@ -77,7 +77,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         }
         content.addArrangedSubview(note(String(localized: "Applies to the next archive you open. Mounted archives stay as they are.")))
         content.addArrangedSubview(sectionTitle(String(localized: "Status")))
-        // Status samt „Fertig“ in einer Tabelle: alle Knöpfe in derselben Spalte
+        // Status and "Done" share one grid, so all buttons line up in the same column
         content.addArrangedSubview(statusContainer)
         content.widthAnchor.constraint(equalToConstant: contentWidth).isActive = true
         statusContainer.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
@@ -132,7 +132,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         return label
     }
 
-    // MARK: Zustand
+    // MARK: State
 
     private func refresh() {
         let current = defaults.string(forKey: FuseHelperMounter.backendKey).flatMap(FuseBackend.init(rawValue:))
@@ -153,8 +153,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             addStatus(true, String(localized: "macFUSE is installed and its FSKit extension is registered."),
                       button: (install, #selector(openMacFUSE)))
         } else {
-            // Ohne FSKit-Erweiterung fällt macFUSE auf seine Kernel-Erweiterung zurück, die auf
-            // Apple-Chips nur mit gesenkter Sicherheit lädt
+            // Without its FSKit extension, macFUSE falls back to its kernel extension, which
+            // on Apple silicon only loads with reduced security
             addStatus(false, String(localized: "macFUSE is installed, but its FSKit extension is not registered, so macFUSE wants to load its kernel extension instead. To fix this, reinstall macFUSE and turn it on under File System Extensions."),
                       button: (install, #selector(openMacFUSE)))
         }
@@ -183,8 +183,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         buildStatusGrid()
     }
 
-    /// Ist eine Dateisystem-Erweiterung beim System angemeldet? FSKit selbst zeigt fremden
-    /// Apps keine fremden Module, `pluginkit` schon.
+    /// Whether a file system extension is registered. FSKit doesn't show other apps'
+    /// modules to an app, but `pluginkit` does.
     private static func isRegistered(module identifier: String) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
@@ -198,13 +198,13 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         return output.contains(identifier)
     }
 
-    /// `ok`: grün, orange oder (nil) neutral.
+    /// `ok`: green, orange, or neutral (nil).
     private func addStatus(_ ok: Bool?, _ text: String, button: (String, Selector)? = nil) {
         statusRows.append((ok, text, button))
     }
 
-    /// Drei Spalten: Symbol, Text, Knopf. Letzte Zeile: Hinweis und „Fertig“. Alle Knöpfe
-    /// gleich breit in derselben Spalte, also mit gleichem Abstand zum rechten Rand.
+    /// Three columns: symbol, text, button. Last row: hint and "Done". All buttons are
+    /// equally wide in the same column, so they share the same right margin.
     private func buildStatusGrid() {
         statusContainer.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let grid = NSGridView()
@@ -240,7 +240,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         footer.yPlacement = .center
         footer.topPadding = 12
 
-        // Spalten: Symbol 18, Knöpfe so breit wie der breiteste, Text bekommt den Rest
+        // Columns: symbol 18 pt, buttons as wide as the widest, text gets the rest
         let buttonWidth = buttons.map(\.intrinsicContentSize.width).max() ?? 0
         let textWidth = contentWidth - 18 - buttonWidth - 2 * grid.columnSpacing
         for label in labels { label.preferredMaxLayoutWidth = textWidth }
@@ -252,7 +252,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         statusContainer.addArrangedSubview(grid)
     }
 
-    // MARK: Aktionen
+    // MARK: Actions
 
     @objc private func choose(_ sender: NSButton) {
         let backend = radios.first { $0.button === sender }?.backend

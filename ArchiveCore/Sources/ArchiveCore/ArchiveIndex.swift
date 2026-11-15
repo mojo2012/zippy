@@ -1,6 +1,6 @@
 import Foundation
 
-/// Ordnerbaum eines Archivs, einmal beim Öffnen aufgebaut.
+/// Directory tree of an archive, built once when opening.
 public struct ArchiveIndex: Sendable {
     public static let rootID: UInt64 = 2
 
@@ -12,24 +12,25 @@ public struct ArchiveIndex: Sendable {
 
     public func entry(_ id: UInt64) -> ArchiveEntry? { entries[id] }
 
-    /// Kinder eines Ordners, nach Namen sortiert.
+    /// Children of a directory, sorted by name.
     public func children(of id: UInt64) -> [ArchiveEntry] {
         (childrenByName[id] ?? [:]).values
             .compactMap { entries[$0] }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    /// Sucht unabhängig von der Unicode-Schreibweise: Der Finder schickt Namen
-    /// oft zerlegt ("a" + "¨"), ZIPs enthalten meist die zusammengesetzte Form ("ä").
+    /// Looks up a name regardless of Unicode normalization: Finder often sends decomposed
+    /// names ("a" + "¨") while ZIPs usually contain the precomposed form ("ä").
     public func lookup(_ name: String, in directoryID: UInt64) -> ArchiveEntry? {
         childrenByName[directoryID]?[Self.key(name)].flatMap { entries[$0] }
     }
 
-    private static func key(_ name: String) -> String {
+    /// Normalized lookup key for a name; also used by ``EditableArchive``.
+    static func key(_ name: String) -> String {
         name.precomposedStringWithCanonicalMapping
     }
 
-    /// Sucht einen Eintrag über einen Pfad wie `"ordner/datei.txt"`.
+    /// Looks up an entry by a path like `"folder/file.txt"`.
     public func lookup(path: String) -> ArchiveEntry? {
         var current = root
         for component in path.split(separator: "/") where !component.isEmpty {
@@ -39,7 +40,7 @@ public struct ArchiveIndex: Sendable {
         return current
     }
 
-    // MARK: Aufbau
+    // MARK: Building
 
     init(rootDate: Date) {
         entries[Self.rootID] = ArchiveEntry(
@@ -48,8 +49,8 @@ public struct ArchiveIndex: Sendable {
             isEncrypted: false, archiveIndex: nil)
     }
 
-    /// Bereinigt einen Pfad aus dem Archiv. Gibt `nil` zurück, wenn er aus dem
-    /// Volume hinausführen würde (`..`).
+    /// Normalizes a path from the archive into components. Returns `nil` if it's empty
+    /// or would lead out of the volume (`..`).
     static func sanitize(_ path: String) -> [String]? {
         var components: [String] = []
         for part in path.split(separator: "/", omittingEmptySubsequences: true) {
@@ -62,8 +63,8 @@ public struct ArchiveIndex: Sendable {
         return components.isEmpty ? nil : components
     }
 
-    /// Fügt einen Eintrag ein. Fehlende Zwischenordner werden angelegt.
-    /// Kommt ein Pfad doppelt vor, gewinnt der spätere Eintrag.
+    /// Inserts an entry, creating missing intermediate directories.
+    /// If a path occurs twice, the later entry wins.
     mutating func insert(path components: [String], kind: ArchiveEntry.Kind, size: UInt64,
                          modificationDate: Date, permissions: UInt16, symlinkTarget: String?,
                          isEncrypted: Bool, archiveIndex: Int) {
@@ -75,7 +76,7 @@ public struct ArchiveIndex: Sendable {
         let existing = lookup(name, in: parentID)
 
         if kind == .directory, let existing, existing.isDirectory {
-            // Expliziter Ordner-Eintrag: Metadaten übernehmen, ID behalten.
+            // Explicit directory entry: take its metadata, keep the ID.
             entries[existing.id] = ArchiveEntry(
                 id: existing.id, parentID: parentID, name: name, kind: .directory, size: 0,
                 modificationDate: modificationDate, permissions: permissions,
@@ -95,7 +96,7 @@ public struct ArchiveIndex: Sendable {
     private mutating func ensureDirectory(named name: String, in parentID: UInt64, date: Date) -> UInt64 {
         if let existing = lookup(name, in: parentID) {
             if existing.isDirectory { return existing.id }
-            remove(existing.id)   // Datei und Ordner mit gleichem Namen: Ordner gewinnt
+            remove(existing.id)   // file and directory with the same name: the directory wins
         }
         let id = makeID()
         entries[id] = ArchiveEntry(

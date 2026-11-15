@@ -1,15 +1,15 @@
-// Erzeugt das App-Icon von Zippy im Stil der macOS-App-Icons (abgerundetes
-// Quadrat mit Verlauf), passend zu den Dokument-Icons aus make-icons.swift.
+// Generates Zippy's app icon in the style of macOS app icons (rounded square with
+// a gradient), matching the document icons from make-icons.swift.
 //
-//   swift scripts/make-app-icon.swift <ausgabe.icns> [vorschau.png] [variante]
+//   swift scripts/make-app-icon.swift <output.icns> [preview.png] [variant]
 //
-// Varianten: "z" (Standard) – großes Z, dessen Diagonale ein Reißverschluss ist;
-//            "wort"         – Reißverschluss von oben, darunter der Schriftzug "zippy".
-// Die Vorschau zeigt immer beide Varianten in 256 und 32 px.
+// Variants: "z" (default) – a large Z whose diagonal is a zipper;
+//           "wort"        – a zipper from the top with the "zippy" wordmark below.
+// The preview always shows both variants at 256 and 32 px.
 
 import AppKit
 
-let blue = NSColor(srgbRed: 0.18, green: 0.48, blue: 0.96, alpha: 1)   // wie das ZIP-Icon
+let blue = NSColor(srgbRed: 0.18, green: 0.48, blue: 0.96, alpha: 1)   // same as the ZIP document icon
 
 func shade(_ color: NSColor, _ amount: CGFloat) -> NSColor {
     amount < 0 ? color.blended(withFraction: -amount, of: .black)! : color.blended(withFraction: amount, of: .white)!
@@ -18,20 +18,20 @@ func shade(_ color: NSColor, _ amount: CGFloat) -> NSColor {
 let paper = NSColor.white, paperShade = NSColor(srgbRed: 0.90, green: 0.92, blue: 0.96, alpha: 1)
 let outline = shade(blue, -0.45)
 
-/// Weiße Flächen (Z, Band) wie das Blatt der Dokument-Icons.
+/// White surfaces (Z, band), like the paper of the document icons.
 func fillPaper(_ path: NSBezierPath) {
     NSGradient(starting: paper, ending: paperShade)!.draw(in: path, angle: -90)
 }
 
-/// Zahn, Schieber, Lasche in Blau mit dunkler Kontur, wie bei den Dokument-Icons.
+/// Teeth, slider and pull tab: blue with a dark outline, like the document icons.
 func fillBlue(_ path: NSBezierPath, line: CGFloat, from: CGFloat = 0.25, to: CGFloat = -0.15) {
     NSGradient(starting: shade(blue, from), ending: shade(blue, to))!.draw(in: path, angle: -90)
     outline.setStroke(); path.lineWidth = line; path.stroke()
 }
 
-/// Reißverschluss entlang der x-Achse des aktuellen Koordinatensystems, von 0 bis `length`.
-/// Mit `overrun` läuft er an beiden Enden so weit weiter, nur mit ganzen Zähnen, und endet
-/// in Endstücken wie bei einem echten Reißverschluss; ohne läuft er durch (Ausschnitt per Clip).
+/// Zipper along the x axis of the current coordinate system, from 0 to `length`.
+/// With `overrun` it extends that far past both ends, using whole teeth only, and ends in
+/// stops like a real zipper; without it, it runs on and the caller clips it.
 func zipper(length: CGFloat, detailed: Bool, line: CGFloat, overrun: CGFloat? = nil) {
     if detailed {
         let toothAlong: CGFloat = 24, toothAcross: CGFloat = 48, step: CGFloat = 30
@@ -43,7 +43,7 @@ func zipper(length: CGFloat, detailed: Bool, line: CGFloat, overrun: CGFloat? = 
             let first = -overrun
             let count = Int((length + 2 * overrun - toothAlong) / step) + 1
             for i in 0..<count { tooth(at: first + CGFloat(i) * step, upper: i % 2 == 0) }
-            // Endstücke: schmale Klammern quer über beide Zahnreihen
+            // Stops: narrow clamps across both rows of teeth
             let lastEnd = first + CGFloat(count - 1) * step + toothAlong
             for x in [first - 16, lastEnd + 4] {
                 let stop = NSRect(x: x, y: -toothAcross + 2, width: 12, height: 2 * toothAcross - 4)
@@ -65,9 +65,9 @@ func zipper(length: CGFloat, detailed: Bool, line: CGFloat, overrun: CGFloat? = 
     }
 }
 
-/// Schieber auf dem Reißverschluss (im gedrehten System) und senkrecht hängende Lasche.
+/// Slider on the zipper (rotated to `angle`) with a vertically hanging pull tab.
 func slider(at point: NSPoint, angle: CGFloat, detailed: Bool, line: CGFloat) {
-    // Lasche zuerst, damit der Schieber sie oben verdeckt
+    // Pull tab first, so the slider covers its top
     if detailed {
         let tab = NSBezierPath(roundedRect: NSRect(x: point.x - 32, y: point.y - 175, width: 64, height: 150),
                                xRadius: 30, yRadius: 30)
@@ -76,17 +76,13 @@ func slider(at point: NSPoint, angle: CGFloat, detailed: Bool, line: CGFloat) {
         NSBezierPath(roundedRect: NSRect(x: point.x - 13, y: point.y - 150, width: 26, height: 56),
                      xRadius: 13, yRadius: 13).fill()
     }
-    NSGraphicsContext.saveGraphicsState()
-    let t = NSAffineTransform()
-    t.translateX(by: point.x, yBy: point.y)
-    t.rotate(byRadians: angle)
-    t.concat()
-    fillBlue(NSBezierPath(roundedRect: NSRect(x: -46, y: -56, width: 92, height: 112), xRadius: 22, yRadius: 22),
-             line: line, from: 0.1, to: -0.3)
-    NSGraphicsContext.restoreGraphicsState()
+    rotated(at: point, by: angle) {
+        fillBlue(NSBezierPath(roundedRect: NSRect(x: -46, y: -56, width: 92, height: 112), xRadius: 22, yRadius: 22),
+                 line: line, from: 0.1, to: -0.3)
+    }
 }
 
-/// Zeichnet in einem verschobenen und gedrehten Koordinatensystem.
+/// Draws in a translated and rotated coordinate system.
 func rotated(at point: NSPoint, by angle: CGFloat, _ draw: () -> Void) {
     NSGraphicsContext.saveGraphicsState()
     let t = NSAffineTransform()
@@ -97,7 +93,7 @@ func rotated(at point: NSPoint, by angle: CGFloat, _ draw: () -> Void) {
     NSGraphicsContext.restoreGraphicsState()
 }
 
-/// Geschlossener Pfad durch die Ecken, jede Ecke mit eigenem Radius abgerundet.
+/// Closed path through the corners, each corner rounded with its own radius.
 func roundedPolygon(_ corners: [(NSPoint, CGFloat)]) -> NSBezierPath {
     let path = NSBezierPath()
     let first = corners[0].0, last = corners[corners.count - 1].0
@@ -110,10 +106,14 @@ func roundedPolygon(_ corners: [(NSPoint, CGFloat)]) -> NSBezierPath {
     return path
 }
 
+func bitmap(width: Int, height: Int) -> NSBitmapImageRep {
+    NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
+                     samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                     colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+}
+
 func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
-                               samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    let rep = bitmap(width: pixels, height: pixels)
     rep.size = NSSize(width: pixels, height: pixels)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
@@ -125,8 +125,8 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
     let detailed = pixels >= 64
     let line = max(4, 1.2 / scale)
 
-    // Grundform nach dem macOS-Raster: 824 × 824 mittig, mit Schatten.
-    // Dunkleres Blau als der Reißverschluss, damit er sich abhebt.
+    // Base shape on the macOS icon grid: 824 × 824, centered, with a shadow.
+    // Darker blue than the zipper so the zipper stands out.
     let squircle = NSBezierPath(roundedRect: NSRect(x: 100, y: 100, width: 824, height: 824), xRadius: 185, yRadius: 185)
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
@@ -141,7 +141,7 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
 
     switch variant {
     case "wort":
-        // Weißes Band mit Reißverschluss von oben, Schriftzug darunter
+        // White band with a zipper from the top, wordmark below
         let band = NSBezierPath(roundedRect: NSRect(x: 512 - 62, y: 560, width: 124, height: 420), xRadius: 20, yRadius: 20)
         fillPaper(band)
         NSGraphicsContext.saveGraphicsState()
@@ -158,28 +158,22 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
         }
 
     default:
-        // Weißes Z, in dessen Diagonale der Reißverschluss läuft
+        // White Z with the zipper running along its diagonal
         let left: CGFloat = 250, right: CGFloat = 774, barHeight: CGFloat = 112, stroke: CGFloat = 190
         let topBar = NSRect(x: left, y: 674, width: right - left, height: barHeight)
         let bottomBar = NSRect(x: left, y: 238, width: right - left, height: barHeight)
-        let diagonal = NSBezierPath()
-        diagonal.move(to: NSPoint(x: left, y: bottomBar.maxY - 1))
-        diagonal.line(to: NSPoint(x: left + stroke, y: bottomBar.maxY - 1))
-        diagonal.line(to: NSPoint(x: right, y: topBar.minY + 1))
-        diagonal.line(to: NSPoint(x: right - stroke, y: topBar.minY + 1))
-        diagonal.close()
-        // Das Z als eine Fläche: Balken und Diagonale gehen mit Rundungen ineinander über
-        // (innen weite Kehlen, außen sanfte Bögen) statt mit Ecken aneinanderzustoßen.
+        // The Z as a single shape: bars and diagonal blend into each other with curves
+        // (wide fillets inside, gentle arcs outside) instead of meeting at sharp corners.
         let z = roundedPolygon([
-            (NSPoint(x: left, y: topBar.maxY), 28),                     // oben links
-            (NSPoint(x: right, y: topBar.maxY), 28),                    // oben rechts
-            (NSPoint(x: right, y: topBar.minY), 60),                    // Übergang in die Diagonale (außen)
-            (NSPoint(x: left + stroke, y: bottomBar.maxY), 10),         // Kehle unten
+            (NSPoint(x: left, y: topBar.maxY), 28),                     // top left
+            (NSPoint(x: right, y: topBar.maxY), 28),                    // top right
+            (NSPoint(x: right, y: topBar.minY), 60),                    // into the diagonal (outside)
+            (NSPoint(x: left + stroke, y: bottomBar.maxY), 10),         // bottom fillet
             (NSPoint(x: right, y: bottomBar.maxY), 28),
-            (NSPoint(x: right, y: bottomBar.minY), 28),                 // unten rechts
-            (NSPoint(x: left, y: bottomBar.minY), 28),                  // unten links
-            (NSPoint(x: left, y: bottomBar.maxY), 60),                  // Übergang in die Diagonale (außen)
-            (NSPoint(x: right - stroke, y: topBar.minY), 10),           // Kehle oben
+            (NSPoint(x: right, y: bottomBar.minY), 28),                 // bottom right
+            (NSPoint(x: left, y: bottomBar.minY), 28),                  // bottom left
+            (NSPoint(x: left, y: bottomBar.maxY), 60),                  // into the diagonal (outside)
+            (NSPoint(x: right - stroke, y: topBar.minY), 10),           // top fillet
             (NSPoint(x: left, y: topBar.minY), 28),
         ])
         NSGraphicsContext.saveGraphicsState()
@@ -195,8 +189,8 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
         let start = NSPoint(x: left + stroke / 2, y: bottomBar.maxY)
         let end = NSPoint(x: right - stroke / 2, y: topBar.minY)
         let angle = atan2(end.y - start.y, end.x - start.x)
-        // Reißverschluss läuft ein Stück in die Balken und endet dort mit Endstücken;
-        // begrenzt auf das Z selbst, nicht mehr auf die Diagonale
+        // The zipper runs a little into the bars and ends there with stops;
+        // clipped to the whole Z, not just the diagonal
         NSGraphicsContext.saveGraphicsState()
         z.addClip()
         rotated(at: start, by: angle) {
@@ -214,11 +208,11 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
 
 func png(_ rep: NSBitmapImageRep) -> Data { rep.representation(using: .png, properties: [:])! }
 
-// MARK: Ausgabe
+// MARK: Output
 
 let args = CommandLine.arguments
 guard args.count >= 2 else {
-    print("Aufruf: swift scripts/make-app-icon.swift <ausgabe.icns> [vorschau.png] [z|wort]")
+    print("Usage: swift scripts/make-app-icon.swift <output.icns> [preview.png] [z|wort]")
     exit(2)
 }
 let variant = args.count >= 4 ? args[3] : "z"
@@ -241,9 +235,7 @@ if args.count >= 3 {
     let variants = ["z", "wort"]
     let big = 256, small = 32, gap = 24
     let width = variants.count * (big + gap) + gap, height = big + small + 3 * gap
-    let sheet = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
-                                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    let sheet = bitmap(width: width, height: height)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: sheet)
     NSColor(white: 0.93, alpha: 1).setFill()
@@ -257,5 +249,5 @@ if args.count >= 3 {
     }
     NSGraphicsContext.restoreGraphicsState()
     try png(sheet).write(to: URL(fileURLWithPath: args[2]))
-    print("Vorschau: \(args[2])")
+    print("Preview: \(args[2])")
 }

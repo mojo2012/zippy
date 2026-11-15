@@ -1,32 +1,33 @@
 import AppKit
 import UserNotifications
 
-/// Mitteilungen in der Mitteilungszentrale, im Stil der System-Meldungen beim
-/// Auswerfen von Laufwerken. Die System-Meldung selbst kann keine App auslösen.
+/// Notification Center messages, styled like the system messages shown when a
+/// drive is ejected (apps can't trigger those system messages themselves).
 ///
-/// Die App fragt beim ersten Öffnen um Erlaubnis (``requestPermission()``); der
-/// FUSE-Hilfsprozess meldet nach dem Auswerfen (``post(title:body:reveal:)``).
-/// Ein Klick auf die Mitteilung startet Zippy, das die Datei im Finder zeigt.
+/// The app asks for permission the first time an archive is opened
+/// (``requestPermission()``); the FUSE helper process posts after the eject
+/// (``post(title:body:reveal:)``). Clicking the notification launches Zippy,
+/// which reveals the file in Finder.
 enum Notifier {
-    /// Pfad in `userInfo`, der beim Klick im Finder gezeigt wird.
+    /// `userInfo` key holding the path to reveal in Finder on click.
     static let revealKey = "reveal"
 
-    /// Das System fragt nur beim ersten Mal, danach gilt die Einstellung.
+    /// The system only asks the first time; after that the user's setting applies.
     static func requestPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error { log.error("Mitteilungen: \(error.localizedDescription, privacy: .public)") }
-            log.info("Mitteilungen erlaubt: \(granted)")
+            if let error { log.error("Notification permission request failed: \(error.localizedDescription, privacy: .public)") }
+            log.info("Notifications allowed: \(granted)")
         }
     }
 
-    private final class Box: @unchecked Sendable { var delivered = false }
+    private final class DeliveryFlag: @unchecked Sendable { var delivered = false }
 
-    /// Zeigt eine Mitteilung. Blockiert, bis sie übergeben ist (der Hilfsprozess
-    /// endet gleich danach). Sind Mitteilungen aus, erscheint ein Dialog, damit
-    /// ein Fehler nicht ungesehen bleibt. Nur vom Haupt-Thread aufrufen.
+    /// Posts a notification and blocks until it has been handed over (the helper
+    /// process exits right afterwards). If notifications are off, shows an alert
+    /// instead so an error doesn't go unnoticed. Call from the main thread only.
     static func post(title: String, body: String, reveal: URL?) {
         let center = UNUserNotificationCenter.current()
-        let box = Box()
+        let flag = DeliveryFlag()
         let done = DispatchSemaphore(value: 0)
         center.getNotificationSettings { settings in
             guard [.authorized, .provisional].contains(settings.authorizationStatus) else {
@@ -39,13 +40,13 @@ enum Notifier {
             content.sound = .default
             if let reveal { content.userInfo = [revealKey: reveal.path] }
             center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { error in
-                if let error { log.error("Mitteilung: \(error.localizedDescription, privacy: .public)") }
-                box.delivered = error == nil
+                if let error { log.error("Posting notification failed: \(error.localizedDescription, privacy: .public)") }
+                flag.delivered = error == nil
                 done.signal()
             }
         }
         _ = done.wait(timeout: .now() + 5)
-        if !box.delivered {
+        if !flag.delivered {
             MainActor.assumeIsolated { showAlert(title: title, body: body, reveal: reveal) }
         }
     }

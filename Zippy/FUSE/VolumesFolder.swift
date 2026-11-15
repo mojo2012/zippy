@@ -1,21 +1,21 @@
 import Foundation
 
-/// `/Volumes/Zippy`: Elternordner der Mountpunkte für FUSE-T über FSKit.
+/// `/Volumes/Zippy`: parent folder of the mount points for FUSE-T via FSKit.
 ///
-/// Der Finder zeigt FSKit-Volumes nur dann in der Seitenleiste, auf dem Schreibtisch
-/// und mit Auswerfen-Knopf, wenn sie unter /Volumes hängen. Dort darf nur root Ordner
-/// anlegen, und macOS räumt /Volumes beim Start auf. Darum legt ein kleiner
-/// LaunchDaemon (kein eigenes Programm, nur `mkdir`) den Ordner bei jedem Start an:
-/// für alle beschreibbar, mit Sticky-Bit wie /tmp, damit jeder nur eigene
-/// Mountpunkte löschen kann. Eingerichtet wird er einmal, mit Admin-Passwort.
+/// Finder only shows FSKit volumes in the sidebar, on the desktop and with an eject
+/// button when they are mounted under /Volumes. Only root may create folders there,
+/// and macOS cleans up /Volumes at startup. So a small LaunchDaemon (no binary of its
+/// own, just `mkdir`) creates the folder at every boot: world-writable with the sticky
+/// bit like /tmp, so users can only remove their own mount points. It is installed
+/// once, with an administrator password.
 enum VolumesFolder {
     static let url = URL(fileURLWithPath: "/Volumes/Zippy", isDirectory: true)
     static let label = "dev.zippy.volumes-folder"
     static let plistPath = "/Library/LaunchDaemons/\(label).plist"
-    /// Wer die Einrichtung abgelehnt hat, wird nicht erneut gefragt.
+    /// Users who declined the setup aren't asked again.
     static let declinedKey = "VolumesFolderDeclined"
 
-    /// Ordner da und beschreibbar?
+    /// Whether the folder exists and is writable.
     static var isUsable: Bool { access(url.path, W_OK) == 0 }
 
     static var isInstalled: Bool { FileManager.default.fileExists(atPath: plistPath) }
@@ -25,14 +25,14 @@ enum VolumesFolder {
         set { UserDefaults.standard.set(newValue, forKey: declinedKey) }
     }
 
-    /// Richtet den Dienst ein und startet ihn sofort. Fragt nach dem Admin-Passwort.
-    /// `true`, wenn der Ordner danach nutzbar ist.
+    /// Installs the daemon and starts it right away, asking for an administrator password.
+    /// Returns `true` if the folder is usable afterwards.
     static func install() async -> Bool {
         let daemon: [String: Any] = [
             "Label": label,
             "ProgramArguments": ["/bin/sh", "-c", "/bin/mkdir -p '\(url.path)' && /bin/chmod 1777 '\(url.path)'"],
             "RunAtLoad": true,
-            // Unter Anmeldeobjekte erscheint dann Zippy statt „sh“
+            // Makes Login Items show Zippy instead of "sh"
             "AssociatedBundleIdentifiers": [Bundle.main.bundleIdentifier ?? "dev.zippy.Zippy"],
         ]
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("\(label).plist")
@@ -45,10 +45,10 @@ enum VolumesFolder {
         }
         defer { try? FileManager.default.removeItem(at: temporary) }
 
-        // bootout scheitert, wenn der Dienst noch nicht geladen ist; das ist egal
+        // bootout fails if the daemon isn't loaded yet; that's fine
         let shell = "/usr/bin/install -m 644 -o root -g wheel '\(temporary.path)' '\(plistPath)'"
             + " && { /bin/launchctl bootout system/\(label) 2>/dev/null; /bin/launchctl bootstrap system '\(plistPath)'; }"
-        // Ohne Anführungszeichen: steht in einem AppleScript-String
+        // Strip quotes: the prompt is embedded in an AppleScript string
         let prompt = String(localized: "Zippy wants to set up the folder /Volumes/Zippy once, so archives appear as drives in Finder.")
             .replacingOccurrences(of: "\"", with: "")
         let script = "do shell script \"\(shell)\" with prompt \"\(prompt)\" with administrator privileges"
@@ -64,16 +64,16 @@ enum VolumesFolder {
             return process.terminationStatus
         }.value
         guard status == 0 else {
-            log.info("Einrichtung von \(url.path, privacy: .public) abgelehnt oder gescheitert (\(status))")
+            log.info("Setting up \(url.path, privacy: .public) was declined or failed (\(status))")
             wasDeclined = true
             return false
         }
 
-        // Der Dienst läuft beim bootstrap sofort an
+        // The daemon runs immediately on bootstrap
         for _ in 0..<40 where !isUsable {
             try? await Task.sleep(for: .milliseconds(50))
         }
-        log.info("\(url.path, privacy: .public) eingerichtet: \(isUsable)")
+        log.info("\(url.path, privacy: .public) set up: \(isUsable)")
         return isUsable
     }
 }

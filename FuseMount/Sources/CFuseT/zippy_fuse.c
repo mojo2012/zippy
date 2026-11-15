@@ -17,9 +17,9 @@ static const char *load_error = NULL;
 
 int zf_load(const char *library_path) {
     if (api.mount) return 0;
-    // FUSE-T schreibt nach dem Aushängen eines Volumes noch auf die Verbindung zum
-    // beendeten NFS-Hilfsprozess. Ohne das würde SIGPIPE den ganzen Prozess beenden,
-    // samt aller anderen Volumes.
+    // After a volume is unmounted, FUSE-T still writes to its connection to the
+    // NFS helper process that has already exited. Without this, SIGPIPE would kill
+    // the whole process, including all other volumes.
     signal(SIGPIPE, SIG_IGN);
     void *lib = dlopen(library_path, RTLD_NOW | RTLD_LOCAL);
     if (!lib) { load_error = dlerror(); return -1; }
@@ -30,14 +30,14 @@ int zf_load(const char *library_path) {
     api.destroy = dlsym(lib, "fuse_destroy");
     api.get_context = dlsym(lib, "fuse_get_context");
     if (!api.mount || !api.new_fs || !api.loop || !api.unmount || !api.destroy || !api.get_context) {
-        load_error = "FUSE-Bibliothek ist unvollständig";
+        load_error = "the FUSE library is incomplete";
         memset(&api, 0, sizeof api);
         return -1;
     }
     return 0;
 }
 
-const char *zf_load_error(void) { return load_error ? load_error : "unbekannter Fehler"; }
+const char *zf_load_error(void) { return load_error ? load_error : "unknown error"; }
 
 struct zf_mount {
     volatile int unmounted;
@@ -64,9 +64,9 @@ zf_mount *zf_mount_new(const char *mountpoint, const char *options,
     return m;
 }
 
-// Bewusst die einfache Schleife: fuse_loop_mt von FUSE-T 1.2.9 kehrt nach dem
-// Aushängen nicht zurück (wartet ewig auf ein Semaphor). Archive ist trotzdem
-// thread-sicher, falls später mehrfädig gearbeitet wird.
+// Deliberately the single-threaded loop: FUSE-T 1.2.9's fuse_loop_mt never returns
+// after unmounting (it waits forever on a semaphore). Archive is thread-safe anyway,
+// should a multi-threaded loop become an option later.
 int zf_mount_loop(zf_mount *m) { return api.loop(m->fs); }
 
 void zf_mount_unmount(zf_mount *m) {

@@ -5,48 +5,47 @@ import UserNotifications
 
 let log = Logger(subsystem: "dev.zippy.Zippy", category: "app")
 
-/// Zippy-App ohne Fenster. Lebt nur, bis die angefragten Volumes bereit sind:
+/// The windowless Zippy app. It only lives until the requested volumes are ready:
 ///
-/// - Doppelklick / „Öffnen mit“ → ``application(_:open:)``
-/// - Archive nacheinander an den ``ArchiveMounting`` geben (gleichzeitige Mounts
-///   verträgt nicht jede Technik)
-/// - Finder-Fenster öffnen, wie bei einer .dmg
-/// - alles erledigt → App beendet sich; die Volumes bleiben, bis sie ausgeworfen werden
+/// - double-click / "Open With" → ``application(_:open:)``
+/// - hand the archives to the ``ArchiveMounting`` one at a time (not every backend
+///   copes with concurrent mounts)
+/// - open a Finder window for each volume, like a .dmg does
+/// - once everything is done, quit; the volumes stay until they are ejected
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let mounter = Variant.makeMounter()
 
-    /// Archive, die noch gemountet werden sollen.
-    private var waiting: [URL] = []
-    private var busy = false
-    /// Finder-Fenster, deren Öffnen noch nicht bestätigt ist.
-    private var openingWindows = 0
-    private var receivedFiles = false
-    /// Einstellungsfenster offen: nicht beenden, auch wenn alle Archive gemountet sind.
+    private var pendingArchives: [URL] = []
+    private var isMounting = false
+    /// Finder windows whose opening hasn't been confirmed yet.
+    private var pendingFinderWindows = 0
+    /// Launched for a concrete job (files, a notification click, a service): don't show Settings.
+    private var hasJob = false
+    /// Keeps the app alive while the Settings window is open.
     private var settingsOpen = false
-    /// Laufende Finder-Dienste (Passwort setzen/entfernen).
-    private var servicesRunning = 0
+    private var runningServices = 0
 
-    // MARK: Lebenszyklus
+    // MARK: Lifecycle
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        // Vor application(_:open:), damit Reste keine Namen blockieren.
+        // Before application(_:open:), so leftovers from earlier runs don't block volume names.
         mounter.cleanUp()
-        // Muss vor dem Ende des Starts stehen, sonst geht ein Klick auf eine Mitteilung verloren
+        // Must be set before launching finishes, or a click on a notification gets lost.
         UNUserNotificationCenter.current().delegate = self
-        // Finder-Dienste (Info.plist NSServices): Passwort setzen/entfernen
+        // Finder services (NSServices in Info.plist): set/remove password.
         NSApp.servicesProvider = self
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Durch Klick auf eine Mitteilung gestartet: das erledigt der Delegate unten.
+        // Launched by clicking a notification: the delegate method below handles that.
         if notification.userInfo?[NSApplication.launchUserNotificationUserInfoKey] != nil {
-            receivedFiles = true
+            hasJob = true
         }
-        // Ohne Datei gestartet (z. B. Doppelklick auf die App): Einstellungen zeigen und
-        // beim Schließen beenden; ohne Einstellungen (FSKit-Variante) kurz erklären.
+        // Launched without a file (e.g. by double-clicking the app): show Settings and quit
+        // when it closes. Variants without Settings (FSKit) show a short explanation instead.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
-            guard !receivedFiles else { return }
+            guard !hasJob else { return }
             if Variant.showSettings(onClose: { [self] in
                 settingsOpen = false
                 quitIfDone()
@@ -54,82 +53,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsOpen = true
                 return
             }
-            alert(String(localized: "Zippy opens ZIP, TAR, 7z and RAR archives as drives."),
-                  info: String(localized: "Double-click an archive, or choose Open With → Zippy in Finder."))
+            NSAlert.show(String(localized: "Zippy opens ZIP, TAR, 7z and RAR archives as drives."),
+                         info: String(localized: "Double-click an archive, or choose Open With → Zippy in Finder."))
             NSApp.terminate(nil)
         }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        receivedFiles = true
-        Notifier.requestPermission()   // für Meldungen beim Speichern nach dem Auswerfen
+        hasJob = true
+        Notifier.requestPermission()   // needed for messages when saving after eject
         if let missing = mounter.missingComponent {
             showMissing(missing)
             return quitIfDone()
         }
-        // Geteilte Archive: jeder Teil steht für den ganzen Satz, gemerkt wird der erste.
-        // Mehrere markierte Teile desselben Archivs ergeben so nur ein Volume.
-        for url in urls.map(ArchiveParts.firstPart(of:)) where !waiting.contains(url) {
-            waiting.append(url)
+        // Split archives: any part stands for the whole set, so we keep the first part.
+        // Selecting several parts of the same archive thus yields a single volume.
+        for url in urls.map(ArchiveParts.firstPart(of:)) where !pendingArchives.contains(url) {
+            pendingArchives.append(url)
         }
-        startNext()
+        mountNext()
     }
 
-    // MARK: Mounten
+    // MARK: Mounting
 
-    private func startNext() {
-        guard !busy else { return }
-        guard !waiting.isEmpty else { return quitIfDone() }
-        let archive = waiting.removeFirst()
-        busy = true
+    private func mountNext() {
+        guard !isMounting else { return }
+        guard !pendingArchives.isEmpty else { return quitIfDone() }
+        let archive = pendingArchives.removeFirst()
+        isMounting = true
         Task {
-            do {
-                if let existing = mounter.mountedVolume(for: archive) {
-                    showInFinder(existing)   // schon gemountet: nur das Fenster zeigen
-                    busy = false
-                    return startNext()
+            if let existing = mounter.mountedVolume(for: archive) {
+                showInFinder(existing)   // already mounted: just show the window
+            } else {
+                do {
+                    let password = try await PasswordPrompt.password(for: archive)
+                    let mountPoint = try await mounter.mount(archive, password: password)
+                    log.info("Ready: \(mountPoint.path, privacy: .public)")
+                    showInFinder(mountPoint)
+                } catch is PasswordPrompt.Cancelled {
+                    // The user cancelled the password prompt: skip silently.
+                } catch {
+                    NSAlert.show(String(localized: "“\(archive.lastPathComponent)” can’t be opened."),
+                                 info: error.localizedDescription)
                 }
-                let password = try await PasswordPrompt.password(for: archive)
-                let mountPoint = try await mounter.mount(archive, password: password)
-                log.info("bereit: \(mountPoint.path, privacy: .public)")
-                showInFinder(mountPoint)
-            } catch is PasswordPrompt.Cancelled {
-                // Nutzer hat die Passwortabfrage abgebrochen: still überspringen
-            } catch {
-                alert(String(localized: "“\(archive.lastPathComponent)” can’t be opened."), info: error.localizedDescription)
             }
-            busy = false
-            startNext()
+            isMounting = false
+            mountNext()
         }
     }
 
-    /// Öffnet ein Finder-Fenster für das Volume. Die App beendet sich erst, wenn
-    /// der Finder das Öffnen bestätigt hat.
+    /// Opens a Finder window for the volume. The app only quits once Finder has
+    /// confirmed opening it.
     private func showInFinder(_ mountPoint: URL) {
-        openingWindows += 1
+        pendingFinderWindows += 1
         NSWorkspace.shared.open(mountPoint, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-            if let error { log.error("Finder-Fenster: \(error.localizedDescription, privacy: .public)") }
+            if let error { log.error("Opening Finder window failed: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
-                self.openingWindows -= 1
+                self.pendingFinderWindows -= 1
                 self.quitIfDone()
             }
         }
     }
 
     private func quitIfDone() {
-        if !busy && waiting.isEmpty && openingWindows == 0 && !settingsOpen && servicesRunning == 0 {
+        if !isMounting && pendingArchives.isEmpty && pendingFinderWindows == 0 && !settingsOpen && runningServices == 0 {
             NSApp.terminate(nil)
         }
-    }
-
-    // MARK: Hinweise
-
-    private func alert(_ message: String, info: String) {
-        NSApp.activate()
-        let alert = NSAlert()
-        alert.messageText = message
-        alert.informativeText = info
-        alert.runModal()
     }
 
     private func showMissing(_ missing: (name: String, downloadURL: URL)) {
@@ -145,21 +134,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: - Mitteilungen
+// MARK: - Notifications
 
 extension AppDelegate: UNUserNotificationCenterDelegate {
-    /// Klick auf eine Mitteilung des Hilfsprozesses: Datei im Finder zeigen.
+    /// Click on a notification posted by the helper process: reveal the file in Finder.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse) async {
         let path = response.notification.request.content.userInfo[Notifier.revealKey] as? String
         await MainActor.run {
-            receivedFiles = true
+            hasJob = true
             if let path { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
             quitIfDone()
         }
     }
 
-    /// Kommt eine Mitteilung, während Zippy läuft, trotzdem anzeigen.
+    /// Show notifications even while Zippy is running.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions {
@@ -167,33 +156,46 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     }
 }
 
-// MARK: - Finder-Dienste
+// MARK: - Finder services
 
 extension AppDelegate {
-    /// Rechtsklick → Dienste → „Passwort mit Zippy festlegen …“ (nur ZIP).
+    /// Right-click → Services → "Set Password with Zippy…" (ZIP only).
     @objc(setPassword:userData:error:)
     func setPassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
         runService(.set, pasteboard)
     }
 
-    /// Rechtsklick → Dienste → „Passwort mit Zippy entfernen“ (ZIP, 7z).
+    /// Right-click → Services → "Remove Password with Zippy" (ZIP, 7z).
     @objc(removePassword:userData:error:)
     func removePassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
         runService(.remove, pasteboard)
     }
 
     private func runService(_ action: PasswordChanger.Action, _ pasteboard: NSPasteboard) {
-        receivedFiles = true   // kein Einstellungsfenster
+        hasJob = true
         let urls = pasteboard.readObjects(forClasses: [NSURL.self],
                                           options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        log.info("Dienst \(action == .set ? "Passwort setzen" : "Passwort entfernen", privacy: .public): \(urls.map(\.lastPathComponent), privacy: .public)")
-        servicesRunning += 1
+        log.info("Service \(action == .set ? "set password" : "remove password", privacy: .public): \(urls.map(\.lastPathComponent), privacy: .public)")
+        runningServices += 1
         Task {
             for url in urls {
                 await PasswordChanger.run(action, on: url) { mounter.mountedVolume(for: $0) != nil }
             }
-            servicesRunning -= 1
+            runningServices -= 1
             quitIfDone()
         }
+    }
+}
+
+// MARK: - Alerts
+
+extension NSAlert {
+    /// Shows a plain modal alert with an OK button, bringing the app to the front first.
+    @MainActor static func show(_ message: String, info: String) {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.informativeText = info
+        alert.runModal()
     }
 }
