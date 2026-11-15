@@ -30,20 +30,38 @@ func fillBlue(_ path: NSBezierPath, line: CGFloat, from: CGFloat = 0.25, to: CGF
 }
 
 /// Reißverschluss entlang der x-Achse des aktuellen Koordinatensystems, von 0 bis `length`.
-func zipper(length: CGFloat, detailed: Bool, line: CGFloat) {
+/// Mit `overrun` läuft er an beiden Enden so weit weiter, nur mit ganzen Zähnen, und endet
+/// in Endstücken wie bei einem echten Reißverschluss; ohne läuft er durch (Ausschnitt per Clip).
+func zipper(length: CGFloat, detailed: Bool, line: CGFloat, overrun: CGFloat? = nil) {
     if detailed {
         let toothAlong: CGFloat = 24, toothAcross: CGFloat = 48, step: CGFloat = 30
-        var x: CGFloat = -step
-        var upper = true
-        while x < length + step {
+        func tooth(at x: CGFloat, upper: Bool) {
             let rect = NSRect(x: x, y: upper ? -4 : 4 - toothAcross, width: toothAlong, height: toothAcross)
             fillBlue(NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7), line: 3)
-            x += step
-            upper.toggle()
+        }
+        if let overrun {
+            let first = -overrun
+            let count = Int((length + 2 * overrun - toothAlong) / step) + 1
+            for i in 0..<count { tooth(at: first + CGFloat(i) * step, upper: i % 2 == 0) }
+            // Endstücke: schmale Klammern quer über beide Zahnreihen
+            let lastEnd = first + CGFloat(count - 1) * step + toothAlong
+            for x in [first - 16, lastEnd + 4] {
+                let stop = NSRect(x: x, y: -toothAcross + 2, width: 12, height: 2 * toothAcross - 4)
+                fillBlue(NSBezierPath(roundedRect: stop, xRadius: 5, yRadius: 5), line: 3, from: 0.0, to: -0.3)
+            }
+        } else {
+            var x: CGFloat = -step
+            var upper = true
+            while x < length + step {
+                tooth(at: x, upper: upper)
+                x += step
+                upper.toggle()
+            }
         }
     } else {
         blue.setFill()
-        NSBezierPath(rect: NSRect(x: -20, y: -36, width: length + 40, height: 72)).fill()
+        let extra = overrun ?? 20
+        NSBezierPath(rect: NSRect(x: -extra, y: -36, width: length + 2 * extra, height: 72)).fill()
     }
 }
 
@@ -77,6 +95,19 @@ func rotated(at point: NSPoint, by angle: CGFloat, _ draw: () -> Void) {
     t.concat()
     draw()
     NSGraphicsContext.restoreGraphicsState()
+}
+
+/// Geschlossener Pfad durch die Ecken, jede Ecke mit eigenem Radius abgerundet.
+func roundedPolygon(_ corners: [(NSPoint, CGFloat)]) -> NSBezierPath {
+    let path = NSBezierPath()
+    let first = corners[0].0, last = corners[corners.count - 1].0
+    path.move(to: NSPoint(x: (first.x + last.x) / 2, y: (first.y + last.y) / 2))
+    for (index, corner) in corners.enumerated() {
+        let next = corners[(index + 1) % corners.count].0
+        path.appendArc(from: corner.0, to: next, radius: corner.1)
+    }
+    path.close()
+    return path
 }
 
 func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
@@ -137,9 +168,20 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
         diagonal.line(to: NSPoint(x: right, y: topBar.minY + 1))
         diagonal.line(to: NSPoint(x: right - stroke, y: topBar.minY + 1))
         diagonal.close()
-        let z = NSBezierPath(roundedRect: topBar, xRadius: 28, yRadius: 28)
-        z.append(NSBezierPath(roundedRect: bottomBar, xRadius: 28, yRadius: 28))
-        z.append(diagonal)
+        // Das Z als eine Fläche: Balken und Diagonale gehen mit Rundungen ineinander über
+        // (innen weite Kehlen, außen sanfte Bögen) statt mit Ecken aneinanderzustoßen.
+        let z = roundedPolygon([
+            (NSPoint(x: left, y: topBar.maxY), 28),                     // oben links
+            (NSPoint(x: right, y: topBar.maxY), 28),                    // oben rechts
+            (NSPoint(x: right, y: topBar.minY), 60),                    // Übergang in die Diagonale (außen)
+            (NSPoint(x: left + stroke, y: bottomBar.maxY), 10),         // Kehle unten
+            (NSPoint(x: right, y: bottomBar.maxY), 28),
+            (NSPoint(x: right, y: bottomBar.minY), 28),                 // unten rechts
+            (NSPoint(x: left, y: bottomBar.minY), 28),                  // unten links
+            (NSPoint(x: left, y: bottomBar.maxY), 60),                  // Übergang in die Diagonale (außen)
+            (NSPoint(x: right - stroke, y: topBar.minY), 10),           // Kehle oben
+            (NSPoint(x: left, y: topBar.minY), 28),
+        ])
         NSGraphicsContext.saveGraphicsState()
         let zShadow = NSShadow()
         zShadow.shadowColor = NSColor(white: 0, alpha: 0.25)
@@ -153,10 +195,12 @@ func drawAppIcon(variant: String, pixels: Int) -> NSBitmapImageRep {
         let start = NSPoint(x: left + stroke / 2, y: bottomBar.maxY)
         let end = NSPoint(x: right - stroke / 2, y: topBar.minY)
         let angle = atan2(end.y - start.y, end.x - start.x)
+        // Reißverschluss läuft ein Stück in die Balken und endet dort mit Endstücken;
+        // begrenzt auf das Z selbst, nicht mehr auf die Diagonale
         NSGraphicsContext.saveGraphicsState()
-        diagonal.addClip()
+        z.addClip()
         rotated(at: start, by: angle) {
-            zipper(length: hypot(end.x - start.x, end.y - start.y), detailed: detailed, line: line)
+            zipper(length: hypot(end.x - start.x, end.y - start.y), detailed: detailed, line: line, overrun: 24)
         }
         NSGraphicsContext.restoreGraphicsState()
         let s: CGFloat = 0.62

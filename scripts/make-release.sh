@@ -30,8 +30,6 @@ xcodebuild -project Zippy.xcodeproj -scheme Zippy -configuration Release \
 APP="$DERIVED/Build/Products/Release/Zippy.app"
 
 # Ad hoc, mit Hardened Runtime; disable-library-validation, weil Zippy libfuse-t lädt.
-# Erst den eingebetteten Einstellungsbereich, dann die App.
-codesign -f -s - --options runtime "$APP/Contents/PlugIns/Zippy.prefPane"
 codesign -f -s - --options runtime --entitlements Zippy/Zippy.entitlements "$APP"
 codesign --verify --strict --deep "$APP"
 lipo -info "$APP/Contents/MacOS/Zippy"
@@ -60,8 +58,8 @@ https://github.com/mojo2012/zippy
    archives of a type: select one, press Cmd-I, pick Zippy under "Open with"
    and click "Change All...".
 
-Settings: open Zippy itself (without an archive). It adds a "Zippy" section
-to System Settings, where you can choose how archives are mounted.
+Settings: open Zippy itself (without an archive) to choose how archives are
+mounted and to see whether FUSE-T is set up.
 
 On macOS 26 or later, Zippy asks once for an administrator password to set up
 the folder /Volumes/Zippy, so archives appear as drives in the Finder sidebar.

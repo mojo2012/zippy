@@ -8,5 +8,5 @@ enum Variant {
     }
 
     /// Nichts einzustellen.
-    @MainActor static func showSettings() -> Bool { false }
+    @MainActor static func showSettings(onClose: @escaping @MainActor () -> Void) -> Bool { false }
 }

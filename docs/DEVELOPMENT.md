@@ -200,19 +200,15 @@ Sandbox-Container des ersten Prototyps lenkt das sonst um):
     defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend macfuse        # macFUSE (FSKit)
     defaults delete ~/Library/Preferences/dev.zippy.Zippy.plist Backend               # automatisch
 
-### Einstellungsbereich (.prefPane)
+### Einstellungen
 
-Wie macFUSE, Wacom, GPG Suite: ein altes `NSPreferencePane`-Bundle, das die Systemeinstellungen
-weiterhin laden (ganz unten in der Liste), auch ad hoc signiert (geprüft macOS 27.2).
-- Ziel `ZippyPrefs` (`Zippy/PrefPane`), steckt in `Zippy.app/Contents/PlugIns/Zippy.prefPane`.
-  Swift 5, weil `NSPreferencePane` nicht für Swift-6-Nebenläufigkeit annotiert ist; eigener
-  Modulname, sonst kollidiert er mit der App.
-- Zippy ohne Archiv gestartet → `PreferencePaneInstaller` kopiert die Pane nach
-  `~/Library/PreferencePanes` (ersetzt sie, wenn die Programmdatei anders ist) und öffnet sie.
-- Läuft im Prozess der Systemeinstellungen: schreibt `Backend` und `VolumesFolderDeclined`
-  per `CFPreferences` mit dem Pfad von `~/Library/Preferences/dev.zippy.Zippy`.
-- Ob die FSKit-Erweiterung eingeschaltet ist, kann die Pane nicht sehen (FSKit zeigt fremde
-  Module nicht); sie zeigt nur, ob `fuse-t.app` da ist, und öffnet die Einstellung.
+Zippy ohne Archiv gestartet → Einstellungsfenster (`Zippy/FUSE/SettingsWindow.swift`):
+Auswahl der Technik (`Backend` in den Einstellungen, bei jedem Mounten neu gelesen) und
+Status von FUSE-T, FSKit-Komponente, `/Volumes/Zippy` und macFUSE. Schließen beendet Zippy.
+
+Versucht und wieder ausgebaut: ein eigener Bereich in den Systemeinstellungen (`.prefPane`
+wie macFUSE/Wacom). Lädt auch ad hoc signiert, zeigte aber nach dem Wegklicken und
+Zurückkommen nur noch eine leere Fläche (macOS 27.2).
 
 ### FUSE-T über FSKit (Standard ab macOS 26; geprüft mit FUSE-T 1.2.9, macOS 27.2)
 

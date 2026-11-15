@@ -340,13 +340,18 @@ public final class EditableArchive: @unchecked Sendable {
                 _ = try FileManager.default.replaceItemAt(original, withItemAt: temporary)
                 return original
             }
-            let copy = Self.unusedURL(like: original, suffix: "bearbeitet")
+            let copy = Self.unusedURL(like: original, suffix: Self.editedSuffix)
             try FileManager.default.moveItem(at: temporary, to: copy)
             return copy
         } catch {
             try? FileManager.default.removeItem(at: temporary)
             throw error
         }
+    }
+
+    /// Zusatz für Kopien mit Änderungen: "Fotos (edited).zip" bzw. "Fotos (bearbeitet).zip".
+    public static var editedSuffix: String {
+        String(localized: "edited", bundle: .module, comment: "Suffix of a copy with changes, as in “Photos (edited).zip”")
     }
 
     /// "<Name> (<suffix>).zip", "<Name> (<suffix> 2).zip" … – der erste freie Name.
@@ -404,7 +409,7 @@ public final class EditableArchive: @unchecked Sendable {
                 status = archive_write_set_format_7zip(writer)
                 if status == ARCHIVE_OK { status = archive_write_set_options(writer, "7zip:compression=lzma2") }
             case .rar:
-                throw ArchiveError.writeFailed("RAR-Archive lassen sich nicht schreiben")
+                throw ArchiveError.writeFailed(String(localized: "RAR archives can’t be written", bundle: .module))
             }
             guard status == ARCHIVE_OK else { throw ArchiveError.writeFailed(Archive.message(writer)) }
             try? FileManager.default.removeItem(at: destination)
@@ -437,7 +442,7 @@ public final class EditableArchive: @unchecked Sendable {
                 var offset: off_t = 0
                 while offset < off_t(node.size) {
                     let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, $0.count, offset) }
-                    guard count > 0 else { throw ArchiveError.writeFailed("Arbeitsdatei nicht lesbar") }
+                    guard count > 0 else { throw ArchiveError.writeFailed(String(localized: "working file can’t be read", bundle: .module)) }
                     try writeData(buffer, count: count, to: writer)
                     offset += off_t(count)
                 }

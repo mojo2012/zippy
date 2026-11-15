@@ -41,7 +41,7 @@ enum PasswordPrompt {
                 }
                 return password
             }
-            message = "Das Passwort ist falsch. Bitte erneut versuchen."
+            message = String(localized: "The password is wrong. Please try again.")
         }
     }
 
@@ -60,15 +60,15 @@ enum PasswordPrompt {
     private static func ask(archive: URL, problem: String?) -> (String, Bool)? {
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = "„\(archive.lastPathComponent)“ ist passwortgeschützt."
-        alert.informativeText = problem ?? "Gib das Passwort ein, um das Archiv zu öffnen."
+        alert.messageText = String(localized: "“\(archive.lastPathComponent)” is password-protected.")
+        alert.informativeText = problem ?? String(localized: "Enter the password to open the archive.")
         if problem != nil { alert.alertStyle = .warning }
-        alert.addButton(withTitle: "Öffnen")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: String(localized: "Open"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
 
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 28, width: 260, height: 24))
-        field.placeholderString = "Passwort"
-        let remember = NSButton(checkboxWithTitle: "Im Schlüsselbund sichern", target: nil, action: nil)
+        field.placeholderString = String(localized: "Password")
+        let remember = NSButton(checkboxWithTitle: String(localized: "Remember in Keychain"), target: nil, action: nil)
         remember.frame = NSRect(x: 0, y: 0, width: 260, height: 20)
         let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
         accessory.addSubview(field)

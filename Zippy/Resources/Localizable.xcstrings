@@ -1,0 +1,806 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "“%@” can’t be opened." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ lässt sich nicht öffnen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” can’t be opened."
+          }
+        }
+      }
+    },
+    "“%@” is password-protected." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist passwortgeschützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is password-protected."
+          }
+        }
+      }
+    },
+    "“%@” was changed in the meantime" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ wurde zwischendurch geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” was changed in the meantime"
+          }
+        }
+      }
+    },
+    "%@ – drives under Locations, macOS 26 or later" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – Laufwerke unter „Orte“, ab macOS 26"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – drives under Locations, macOS 26 or later"
+          }
+        }
+      }
+    },
+    "%@ – listed under the server “fuse-t”" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – erscheinen unter dem Server „fuse-t“"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – listed under the server “fuse-t”"
+          }
+        }
+      }
+    },
+    "%@ – only one archive at a time" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – nur ein Archiv gleichzeitig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – only one archive at a time"
+          }
+        }
+      }
+    },
+    "%@ provides the drives and is free. Afterwards, open the archive again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ stellt die Laufwerke bereit und ist kostenlos. Danach das Archiv erneut öffnen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ provides the drives and is free. Afterwards, open the archive again."
+          }
+        }
+      }
+    },
+    "Applies to the next archive you open. Mounted archives stay as they are." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gilt für das nächste geöffnete Archiv. Gemountete Archive bleiben, wie sie sind."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to the next archive you open. Mounted archives stay as they are."
+          }
+        }
+      }
+    },
+    "Ask Again" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut fragen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask Again"
+          }
+        }
+      }
+    },
+    "Automatic (currently %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch (zurzeit %@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic (currently %@)"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Changes to “%@” lost" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen an „%@“ verloren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes to “%@” lost"
+          }
+        }
+      }
+    },
+    "Changes to “%@” not saved" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen an „%@“ nicht gespeichert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes to “%@” not saved"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fertig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Double-click an archive, or choose Open With → Zippy in Finder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppelklicke ein Archiv oder wähle im Finder „Öffnen mit → Zippy“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-click an archive, or choose Open With → Zippy in Finder."
+          }
+        }
+      }
+    },
+    "Enter the password to open the archive." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib das Passwort ein, um das Archiv zu öffnen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the password to open the archive."
+          }
+        }
+      }
+    },
+    "Extensions…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Erweiterungen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extensions …"
+          }
+        }
+      }
+    },
+    "FUSE-T is installed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T ist installiert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T is installed."
+          }
+        }
+      }
+    },
+    "FUSE-T is missing. Without FUSE-T or macFUSE, Zippy can’t open anything." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T fehlt. Ohne FUSE-T oder macFUSE kann Zippy nichts öffnen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T is missing. Without FUSE-T or macFUSE, Zippy can’t open anything."
+          }
+        }
+      }
+    },
+    "FUSE-T via FSKit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T über FSKit"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T via FSKit"
+          }
+        }
+      }
+    },
+    "FUSE-T via FSKit needs macOS 26 or later." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T über FSKit braucht macOS 26 oder neuer."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T via FSKit needs macOS 26 or later."
+          }
+        }
+      }
+    },
+    "FUSE-T via network share (NFS)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T über Netzwerk (NFS)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FUSE-T via network share (NFS)"
+          }
+        }
+      }
+    },
+    "Get %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ laden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get %@"
+          }
+        }
+      }
+    },
+    "How drives are provided" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Technik für die Laufwerke"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How drives are provided"
+          }
+        }
+      }
+    },
+    "Install…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Installieren …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install …"
+          }
+        }
+      }
+    },
+    "macFUSE is installed and its FSKit extension is registered." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE ist installiert, seine FSKit-Erweiterung ist angemeldet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE is installed and its FSKit extension is registered."
+          }
+        }
+      }
+    },
+    "macFUSE is installed, but its FSKit extension is not registered, so macFUSE wants to load its kernel extension instead. To fix this, reinstall macFUSE and turn it on under File System Extensions." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE ist installiert, aber seine FSKit-Erweiterung ist nicht angemeldet. Dann will macFUSE seine Kernel-Erweiterung laden. Abhilfe: macFUSE neu installieren und unter Dateisystemerweiterungen einschalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE is installed, but its FSKit extension is not registered, so macFUSE wants to load its kernel extension instead. To fix this, reinstall macFUSE and turn it on under File System Extensions."
+          }
+        }
+      }
+    },
+    "macFUSE is not installed (optional)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE ist nicht installiert (optional)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macFUSE is not installed (optional)."
+          }
+        }
+      }
+    },
+    "Neither the original nor a copy on the desktop could be written. Details are in the log." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weder das Original noch eine Kopie auf dem Schreibtisch ließen sich schreiben. Details im Protokoll."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neither the original nor a copy on the desktop could be written. Details are in the log."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "Open archives by double-clicking them, or in Finder with Open With → Zippy." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive öffnest du per Doppelklick oder im Finder mit „Öffnen mit → Zippy“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open archives by double-clicking them, or in Finder with Open With → Zippy."
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwort"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        }
+      }
+    },
+    "Remember in Keychain" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Schlüsselbund sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remember in Keychain"
+          }
+        }
+      }
+    },
+    "Setting up /Volumes/Zippy was declined, so Zippy uses NFS." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Einrichtung von /Volumes/Zippy wurde abgelehnt, Zippy nutzt NFS."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up /Volumes/Zippy was declined, so Zippy uses NFS."
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Finder zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        }
+      }
+    },
+    "The folder /Volumes/Zippy is set up the first time you open an archive (administrator password)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ordner /Volumes/Zippy wird beim ersten Öffnen eines Archivs eingerichtet (Administrator-Passwort)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder /Volumes/Zippy is set up the first time you open an archive (administrator password)."
+          }
+        }
+      }
+    },
+    "The folder /Volumes/Zippy is set up." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ordner /Volumes/Zippy ist eingerichtet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder /Volumes/Zippy is set up."
+          }
+        }
+      }
+    },
+    "The FSKit component of FUSE-T (fuse-t.app) is missing. Reinstall FUSE-T on macOS 26 or later." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die FSKit-Komponente von FUSE-T (fuse-t.app) fehlt. FUSE-T unter macOS 26 oder neuer neu installieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The FSKit component of FUSE-T (fuse-t.app) is missing. Reinstall FUSE-T on macOS 26 or later."
+          }
+        }
+      }
+    },
+    "The FSKit component of FUSE-T is installed. It must be turned on under File System Extensions." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die FSKit-Komponente von FUSE-T ist da. Sie muss unter Dateisystemerweiterungen eingeschaltet sein."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The FSKit component of FUSE-T is installed. It must be turned on under File System Extensions."
+          }
+        }
+      }
+    },
+    "The helper process ended (%lld)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Hilfsprozess wurde beendet (%lld)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The helper process ended (%lld)."
+          }
+        }
+      }
+    },
+    "The original couldn’t be replaced. A copy with your changes is on the desktop." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Original ließ sich nicht ersetzen. Eine Kopie mit deinen Änderungen liegt auf dem Schreibtisch."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The original couldn’t be replaced. A copy with your changes is on the desktop."
+          }
+        }
+      }
+    },
+    "The original stays as it is. Your changes are in “%@”." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Original bleibt, wie es ist. Deine Änderungen stehen in „%@“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The original stays as it is. Your changes are in “%@”."
+          }
+        }
+      }
+    },
+    "The password is wrong. Please try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Passwort ist falsch. Bitte erneut versuchen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The password is wrong. Please try again."
+          }
+        }
+      }
+    },
+    "Version %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@"
+          }
+        }
+      }
+    },
+    "Zippy needs %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy braucht %@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy needs %@."
+          }
+        }
+      }
+    },
+    "Zippy opens ZIP, TAR, 7z and RAR archives as drives in Finder. The drives are provided by FUSE-T or macFUSE." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy öffnet ZIP-, TAR-, 7z- und RAR-Archive als Laufwerke im Finder. Die Laufwerke stellt FUSE-T oder macFUSE bereit."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy opens ZIP, TAR, 7z and RAR archives as drives in Finder. The drives are provided by FUSE-T or macFUSE."
+          }
+        }
+      }
+    },
+    "Zippy opens ZIP, TAR, 7z and RAR archives as drives." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy öffnet ZIP-, TAR-, 7z- und RAR-Archive als Laufwerke."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy opens ZIP, TAR, 7z and RAR archives as drives."
+          }
+        }
+      }
+    },
+    "Zippy wants to set up the folder /Volumes/Zippy once, so archives appear as drives in Finder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy möchte einmalig den Ordner /Volumes/Zippy einrichten, damit Archive als Laufwerke im Finder erscheinen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zippy wants to set up the folder /Volumes/Zippy once, so archives appear as drives in Finder."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

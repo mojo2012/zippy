@@ -1,6 +1,7 @@
 name: Zippy
 options:
   bundleIdPrefix: dev.zippy          # TODO: auf eigene Domain ändern
+  developmentLanguage: en            # Texte englisch, deutsch in Localizable.xcstrings
   deploymentTarget:
     macOS: "15.4"
   createIntermediateGroups: true
@@ -35,6 +36,8 @@ targets:
       path: Zippy/Info.plist
       properties: &appInfo
         CFBundleDisplayName: Zippy
+        CFBundleShortVersionString: $(MARKETING_VERSION)   # sonst setzt XcodeGen fest "1.0"
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIconFile: AppIcon      # scripts/make-app-icon.swift
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true              # kein Dock-Symbol, kein Menü
@@ -79,42 +82,10 @@ targets:
     dependencies:
       - package: ArchiveCore
       - package: FuseMount
-      - target: ZippyPrefs              # landet in Contents/PlugIns
-        embed: true
-        copy:
-          destination: plugins
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
         ENABLE_HARDENED_RUNTIME: YES
-
-  # Bereich in den Systemeinstellungen (.prefPane, wie macFUSE oder Wacom): Auswahl der
-  # Technik. Steckt in Zippy.app; die App installiert ihn nach ~/Library/PreferencePanes.
-  ZippyPrefs:
-    type: bundle
-    platform: macOS
-    sources:
-      - Zippy/PrefPane
-      - path: Zippy/Resources/Icons/AppIcon.icns
-        buildPhase: resources
-    dependencies:
-      - package: FuseMount
-      - sdk: PreferencePanes.framework
-    info:
-      path: Zippy/PrefPane/Info.plist
-      properties:
-        CFBundleDisplayName: Zippy
-        NSPrincipalClass: ZippyPane
-        NSPrefPaneIconFile: AppIcon.icns
-        NSPrefPaneIconLabel: Zippy
-    settings:
-      base:
-        PRODUCT_NAME: Zippy
-        PRODUCT_MODULE_NAME: ZippyPrefs   # sonst gleiches Swift-Modul wie die App
-        SWIFT_VERSION: "5.0"              # NSPreferencePane ist nicht für Swift-6-Nebenläufigkeit annotiert
-        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy.prefpane
-        WRAPPER_EXTENSION: prefPane
-        SKIP_INSTALL: YES
 
   # FSKit-Variante: eigene Dateisystem-Erweiterung, Sandbox, App-Store-tauglich.
   # Braucht einen bezahlten Developer-Account (Recht com.apple.developer.fskit.fsmodule).

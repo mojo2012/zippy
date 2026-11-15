@@ -24,7 +24,7 @@ public enum ArchiveParts {
         var result: [URL] = []
         for number in set.first...last {
             guard let name = numbered[number] else {
-                throw ArchiveError.openFailed("Teil \(set.displayName(of: number)) des geteilten Archivs fehlt")
+                throw ArchiveError.openFailed(String(localized: "part \(set.displayName(of: number)) of the split archive is missing", bundle: .module))
             }
             result.append(directory.appendingPathComponent(name))
         }

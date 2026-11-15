@@ -57,8 +57,8 @@ enum Notifier {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = body
-        alert.addButton(withTitle: "OK")
-        if reveal != nil { alert.addButton(withTitle: "Im Finder zeigen") }
+        alert.addButton(withTitle: String(localized: "OK"))
+        if reveal != nil { alert.addButton(withTitle: String(localized: "Show in Finder")) }
         if alert.runModal() == .alertSecondButtonReturn, let reveal {
             NSWorkspace.shared.activateFileViewerSelecting([reveal])
         }

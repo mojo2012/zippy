@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Finder-Fenster, deren Öffnen noch nicht bestätigt ist.
     private var openingWindows = 0
     private var receivedFiles = false
+    /// Einstellungsfenster offen: nicht beenden, auch wenn alle Archive gemountet sind.
+    private var settingsOpen = false
 
     // MARK: Lebenszyklus
 
@@ -37,14 +39,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if notification.userInfo?[NSApplication.launchUserNotificationUserInfoKey] != nil {
             receivedFiles = true
         }
-        // Ohne Datei gestartet (z. B. Doppelklick auf die App): Einstellungen zeigen,
-        // sonst kurz erklären; dann beenden.
+        // Ohne Datei gestartet (z. B. Doppelklick auf die App): Einstellungen zeigen und
+        // beim Schließen beenden; ohne Einstellungen (FSKit-Variante) kurz erklären.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
             guard !receivedFiles else { return }
-            if !Variant.showSettings() {
-                alert("Zippy öffnet ZIP-, TAR-, 7z- und RAR-Archive als Volume.",
-                      info: "Doppelklicke ein Archiv oder wähle im Finder „Öffnen mit → Zippy“.")
+            if Variant.showSettings(onClose: { [self] in
+                settingsOpen = false
+                quitIfDone()
+            }) {
+                settingsOpen = true
+                return
             }
+            alert(String(localized: "Zippy opens ZIP, TAR, 7z and RAR archives as drives."),
+                  info: String(localized: "Double-click an archive, or choose Open With → Zippy in Finder."))
             NSApp.terminate(nil)
         }
     }
@@ -85,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } catch is PasswordPrompt.Cancelled {
                 // Nutzer hat die Passwortabfrage abgebrochen: still überspringen
             } catch {
-                alert("„\(archive.lastPathComponent)“ lässt sich nicht öffnen.", info: error.localizedDescription)
+                alert(String(localized: "“\(archive.lastPathComponent)” can’t be opened."), info: error.localizedDescription)
             }
             busy = false
             startNext()
@@ -106,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func quitIfDone() {
-        if !busy && waiting.isEmpty && openingWindows == 0 { NSApp.terminate(nil) }
+        if !busy && waiting.isEmpty && openingWindows == 0 && !settingsOpen { NSApp.terminate(nil) }
     }
 
     // MARK: Hinweise
@@ -122,10 +129,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMissing(_ missing: (name: String, downloadURL: URL)) {
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = "Zippy braucht \(missing.name)."
-        alert.informativeText = "\(missing.name) stellt die Volumes bereit und ist kostenlos. Danach das Archiv erneut öffnen."
-        alert.addButton(withTitle: "\(missing.name) laden")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.messageText = String(localized: "Zippy needs \(missing.name).")
+        alert.informativeText = String(localized: "\(missing.name) provides the drives and is free. Afterwards, open the archive again.")
+        alert.addButton(withTitle: String(localized: "Get \(missing.name)"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         if alert.runModal() == .alertFirstButtonReturn {
             NSWorkspace.shared.open(missing.downloadURL)
         }

@@ -1,0 +1,70 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "FUSE-T refused the request": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUSE-T hat den Auftrag abgelehnt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FUSE-T refused the request"
+          }
+        }
+      }
+    },
+    "Mounting failed: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mounten fehlgeschlagen: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mounting failed: %@"
+          }
+        }
+      }
+    },
+    "The FUSE library can’t be loaded (%@).": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die FUSE-Bibliothek lässt sich nicht laden (%@)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The FUSE library can’t be loaded (%@)."
+          }
+        }
+      }
+    },
+    "the drive didn’t appear": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "das Laufwerk ist nicht erschienen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the drive didn’t appear"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

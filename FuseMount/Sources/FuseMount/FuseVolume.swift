@@ -11,8 +11,8 @@ public enum FuseError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .backendMissing(let reason): "FUSE-Bibliothek nicht ladbar (\(reason))."
-        case .mountFailed(let reason): "Mounten fehlgeschlagen: \(reason)"
+        case .backendMissing(let reason): String(localized: "The FUSE library can’t be loaded (\(reason)).", bundle: .module)
+        case .mountFailed(let reason): String(localized: "Mounting failed: \(reason)", bundle: .module)
         }
     }
 }
@@ -83,7 +83,7 @@ public final class FuseVolume: @unchecked Sendable {
         let userData = Unmanaged.passUnretained(volume).toOpaque()
         guard let rawHandle = zf_mount_new(mountPoint.path, options, &ops, userData) else {
             try? FileManager.default.removeItem(at: mountPoint)
-            return ready(FuseError.mountFailed("FUSE-T hat den Auftrag abgelehnt"))
+            return ready(FuseError.mountFailed(String(localized: "FUSE-T refused the request", bundle: .module)))
         }
 
         // FUSE-T meldet Erfolg schon vor dem eigentlichen Mount. Darum nachsehen,
@@ -101,7 +101,7 @@ public final class FuseVolume: @unchecked Sendable {
                 ready(nil)
             } else {
                 Darwin.unmount(mountPoint.path, MNT_FORCE)   // beendet die Schleife
-                ready(FuseError.mountFailed("Volume ist nicht erschienen"))
+                ready(FuseError.mountFailed(String(localized: "the drive didn’t appear", bundle: .module)))
             }
         }
 

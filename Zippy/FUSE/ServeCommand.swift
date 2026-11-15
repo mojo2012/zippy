@@ -67,8 +67,8 @@ enum ServeCommand {
             let target = try files.saveReplacing(archive, ifUnchangedSince: stamp)
             log.info("gespeichert: \(target.path, privacy: .public)")
             if target != archive {
-                Notifier.post(title: "„\(archive.lastPathComponent)“ wurde zwischendurch geändert",
-                              body: "Das Original bleibt, wie es ist. Deine Änderungen stehen in „\(target.lastPathComponent)“.",
+                Notifier.post(title: String(localized: "“\(archive.lastPathComponent)” was changed in the meantime"),
+                              body: String(localized: "The original stays as it is. Your changes are in “\(target.lastPathComponent)”."),
                               reveal: target)
             }
             return
@@ -79,17 +79,17 @@ enum ServeCommand {
 
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
         let copy = EditableArchive.unusedURL(like: desktop.appendingPathComponent(archive.lastPathComponent),
-                                             suffix: "bearbeitet")
+                                             suffix: EditableArchive.editedSuffix)
         do {
             try files.save(to: copy)
             log.info("Ersatzkopie: \(copy.path, privacy: .public)")
-            Notifier.post(title: "Änderungen an „\(archive.lastPathComponent)“ nicht gespeichert",
-                          body: "Das Original ließ sich nicht ersetzen. Eine Kopie mit deinen Änderungen liegt auf dem Schreibtisch.",
+            Notifier.post(title: String(localized: "Changes to “\(archive.lastPathComponent)” not saved"),
+                          body: String(localized: "The original couldn’t be replaced. A copy with your changes is on the desktop."),
                           reveal: copy)
         } catch {
             log.error("Ersatzkopie fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
-            Notifier.post(title: "Änderungen an „\(archive.lastPathComponent)“ verloren",
-                          body: "Weder das Original noch eine Kopie auf dem Schreibtisch ließen sich schreiben. Details im Protokoll.",
+            Notifier.post(title: String(localized: "Changes to “\(archive.lastPathComponent)” lost"),
+                          body: String(localized: "Neither the original nor a copy on the desktop could be written. Details are in the log."),
                           reveal: archive)
         }
     }

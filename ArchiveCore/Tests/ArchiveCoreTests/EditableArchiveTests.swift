@@ -205,7 +205,7 @@ import Testing
         try other.write(to: zip)
 
         let target = try editable.saveReplacing(zip, ifUnchangedSince: stamp)
-        #expect(target.lastPathComponent == zip.deletingPathExtension().lastPathComponent + " (bearbeitet).zip")
+        #expect(target.lastPathComponent == zip.deletingPathExtension().lastPathComponent + " (\(EditableArchive.editedSuffix)).zip")
         #expect(try Data(contentsOf: zip) == other)
         #expect(try Archive(url: target).index.lookup(path: "b.txt") != nil)
     }

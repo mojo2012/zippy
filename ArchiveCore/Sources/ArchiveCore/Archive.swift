@@ -12,13 +12,13 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .openFailed(let reason): "Archiv lässt sich nicht öffnen: \(reason)"
-        case .notFound: "Eintrag nicht gefunden."
-        case .notAFile: "Eintrag ist keine Datei."
-        case .passwordRequired: "Das Archiv ist passwortgeschützt."
-        case .wrongPassword: "Das Passwort ist falsch."
-        case .readFailed(let reason): "Lesen fehlgeschlagen: \(reason)"
-        case .writeFailed(let reason): "Speichern fehlgeschlagen: \(reason)"
+        case .openFailed(let reason): String(localized: "The archive can’t be opened: \(reason)", bundle: .module)
+        case .notFound: String(localized: "Entry not found.", bundle: .module)
+        case .notAFile: String(localized: "Entry is not a file.", bundle: .module)
+        case .passwordRequired: String(localized: "The archive is password-protected.", bundle: .module)
+        case .wrongPassword: String(localized: "The password is wrong.", bundle: .module)
+        case .readFailed(let reason): String(localized: "Reading failed: \(reason)", bundle: .module)
+        case .writeFailed(let reason): String(localized: "Saving failed: \(reason)", bundle: .module)
         }
     }
 }
@@ -109,7 +109,7 @@ public final class Archive: @unchecked Sendable {
         } catch ArchiveError.openFailed(let reason) where Self.isSplitZip(url) {
             // libarchive liest hier nur diese eine Datei und meldet dann z. B.
             // "Too small block encountered" – unverständlich für Menschen.
-            throw ArchiveError.openFailed("geteilte ZIPs (.z01 …) werden noch nicht unterstützt (\(reason))")
+            throw ArchiveError.openFailed(String(localized: "split ZIPs (.z01 …) aren’t supported yet (\(reason))", bundle: .module))
         }
     }
 
@@ -222,7 +222,7 @@ public final class Archive: @unchecked Sendable {
         try nextHeader()
 
         guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
-            throw ArchiveError.readFailed("Cache-Datei lässt sich nicht anlegen")
+            throw ArchiveError.readFailed(String(localized: "can’t create the cache file", bundle: .module))
         }
         let output = try FileHandle(forWritingTo: file)
         defer { try? output.close() }
@@ -261,7 +261,7 @@ public final class Archive: @unchecked Sendable {
     private static let formatRar5: Int32 = 0x100000
 
     static func encryptedUnsupported(_ format: ArchiveFormat) -> String {
-        "verschlüsselte \(format.displayName)-Archive werden noch nicht unterstützt"
+        String(localized: "encrypted \(format.displayName) archives aren’t supported yet", bundle: .module)
     }
 
     /// `password` braucht es nur bei 7z mit verschlüsselten Dateinamen.

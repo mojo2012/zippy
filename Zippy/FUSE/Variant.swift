@@ -1,3 +1,4 @@
+import Foundation
 import FuseMount
 
 /// FUSE-Variante: FUSE-T oder macFUSE, ein Hilfsprozess pro Volume.
@@ -15,8 +16,17 @@ enum Variant {
         FuseHelperMounter()
     }
 
-    /// Zippy ohne Archiv gestartet: Einstellungen in den Systemeinstellungen zeigen.
-    @MainActor static func showSettings() -> Bool {
-        PreferencePaneInstaller.installAndOpen()
+    @MainActor private static var settings: SettingsWindow?
+
+    /// Zippy ohne Archiv gestartet: Einstellungsfenster zeigen. `onClose` beim Schließen.
+    @MainActor static func showSettings(onClose: @escaping @MainActor () -> Void) -> Bool {
+        // Reste eines früheren Versuchs mit einem Bereich in den Systemeinstellungen
+        let oldPane = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/PreferencePanes/Zippy.prefPane")
+        try? FileManager.default.removeItem(at: oldPane)
+
+        settings = SettingsWindow { onClose() }
+        settings?.show()
+        return true
     }
 }

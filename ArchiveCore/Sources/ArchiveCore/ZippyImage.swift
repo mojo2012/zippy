@@ -102,7 +102,7 @@ public enum ZippyImage {
                             readBlocks: @escaping @Sendable (UnsafeMutableRawBufferPointer, UInt64) throws -> Int)
         throws -> (archive: Archive, info: Info) {
         guard let info = try readInfo(blockSize: deviceBlockSize, blockCount: blockCount, readBlocks: readBlocks) else {
-            throw ArchiveError.openFailed("kein Zippy-Image")
+            throw ArchiveError.openFailed(String(localized: "not a Zippy image", bundle: .module))
         }
         let source = BlockSource(size: info.zipLength, blockSize: deviceBlockSize, readBlocks: readBlocks)
         return (try Archive(source: source, date: date, password: password), info)

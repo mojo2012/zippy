@@ -9,7 +9,11 @@ import FuseMount
 final class FuseHelperMounter: ArchiveMounting {
     /// Standard: FUSE-T über FSKit, wenn möglich, sonst über NFS. Fest einstellen mit
     /// `defaults write ~/Library/Preferences/dev.zippy.Zippy.plist Backend fuse-t|fuse-t-fskit|macfuse`.
-    private let backend = FuseBackend.choose(setting: UserDefaults.standard.string(forKey: "Backend"))
+    static let backendKey = "Backend"
+    /// Bei jedem Mounten neu gelesen: Das Einstellungsfenster kann es währenddessen ändern.
+    private var backend: FuseBackend {
+        FuseBackend.choose(setting: UserDefaults.standard.string(forKey: Self.backendKey))
+    }
     private let stateDirectory = ZippyPaths.stateDirectory
     /// In diesem Lauf vergebene Namen.
     private var reservedNames: Set<String> = []
@@ -72,7 +76,7 @@ final class FuseHelperMounter: ArchiveMounting {
                 once.resume(returning: line)
             }
             helper.terminationHandler = { process in
-                once.resume(returning: "ERROR Hilfsprozess beendet (\(process.terminationStatus))")
+                once.resume(returning: "ERROR " + String(localized: "The helper process ended (\(Int(process.terminationStatus)))."))
             }
             do {
                 try helper.run()

@@ -48,7 +48,9 @@ enum VolumesFolder {
         // bootout scheitert, wenn der Dienst noch nicht geladen ist; das ist egal
         let shell = "/usr/bin/install -m 644 -o root -g wheel '\(temporary.path)' '\(plistPath)'"
             + " && { /bin/launchctl bootout system/\(label) 2>/dev/null; /bin/launchctl bootstrap system '\(plistPath)'; }"
-        let prompt = "Zippy möchte einmalig den Ordner /Volumes/Zippy einrichten, damit Archive als Laufwerke im Finder erscheinen."
+        // Ohne Anführungszeichen: steht in einem AppleScript-String
+        let prompt = String(localized: "Zippy wants to set up the folder /Volumes/Zippy once, so archives appear as drives in Finder.")
+            .replacingOccurrences(of: "\"", with: "")
         let script = "do shell script \"\(shell)\" with prompt \"\(prompt)\" with administrator privileges"
 
         let status: Int32 = await Task.detached {

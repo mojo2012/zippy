@@ -109,8 +109,12 @@ import Testing
     @Test func missingPartIsReported() throws {
         let parts = try makeSplit7z()
         try FileManager.default.removeItem(at: parts[2])
-        #expect(throws: ArchiveError.openFailed("Teil Fotos.7z.003 des geteilten Archivs fehlt")) {
-            try Archive(url: parts[0])
+        // Meldung ist übersetzt; der fehlende Teil steht in jeder Sprache drin
+        do {
+            _ = try Archive(url: parts[0])
+            Issue.record("Fehlender Teil nicht bemerkt")
+        } catch ArchiveError.openFailed(let reason) {
+            #expect(reason.contains("Fotos.7z.003"))
         }
     }
 

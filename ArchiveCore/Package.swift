@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ArchiveCore",
+    defaultLocalization: "en",   // Meldungen: Sources/ArchiveCore/Resources/Localizable.xcstrings
     platforms: [.macOS("15.4")],
     products: [
         .library(name: "ArchiveCore", targets: ["ArchiveCore"]),
@@ -11,7 +12,7 @@ let package = Package(
     targets: [
         // libarchive, gebaut von scripts/build-libarchive.sh
         .binaryTarget(name: "CArchive", path: "Vendor/CArchive.xcframework"),
-        .target(name: "ArchiveCore", dependencies: ["CArchive"]),
+        .target(name: "ArchiveCore", dependencies: ["CArchive"], resources: [.process("Resources")]),
         .executableTarget(name: "archivetool", dependencies: ["ArchiveCore"]),
         .testTarget(name: "ArchiveCoreTests", dependencies: ["ArchiveCore"],
                     resources: [.copy("Fixtures")]),   // RAR-Testarchive aus libarchive
