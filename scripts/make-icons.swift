@@ -83,8 +83,10 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
     shadow.shadowColor = NSColor(white: 0, alpha: 0.28)
-    shadow.shadowBlurRadius = 22
-    shadow.shadowOffset = NSSize(width: 0, height: -10)
+    // NSShadow ignores the current transform: scale by hand, otherwise small sizes get a
+    // 22-pixel halo
+    shadow.shadowBlurRadius = 22 * scale
+    shadow.shadowOffset = NSSize(width: 0, height: -10 * scale)
     shadow.set()
     NSColor.white.setFill()
     pagePath().fill()

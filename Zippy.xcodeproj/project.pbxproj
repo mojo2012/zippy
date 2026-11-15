@@ -18,6 +18,7 @@
 		2419D2B49C0827503353AB69 /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
 		31D89944635A65196A46D914 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
 		33DE76421CF7D56BF62852E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
+		354475E7AE558882C3DB3F15 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
 		36B311D4E1AE09B29EE4EBB2 /* FuseHelperMounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */; };
 		3D27799EAFECAC64B213EED3 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF23B083DB365069FDEBAB2F /* Keychain.swift */; };
 		3E8BEC3E7D57CA36241E9A43 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B3CB99FC1EBFE6BB5FC2A963 /* AppIcon.icns */; };
@@ -55,6 +56,7 @@
 		E34092E67299E3993B65801B /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A9863891E8C9885707B140 /* SettingsWindow.swift */; };
 		EFAC3F2F7F81A8E13811F70D /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
 		F94E767D9E4BD1E8F54BE2B9 /* ZippyFSExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC03D1E6501C02A15AC5150 /* ZippyFSExtension.swift */; };
+		FF23507A69B7ACC79AF7168C /* zip.icns in Resources */ = {isa = PBXBuildFile; fileRef = EC9C602B56C256B11937A04D /* zip.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -355,6 +357,7 @@
 			buildConfigurationList = 04E05AE8666869486316A0BC /* Build configuration list for PBXNativeTarget "ZippyThumbnails" */;
 			buildPhases = (
 				53F6FD72ADE37C2B41D17611 /* Sources */,
+				0B187B151BB1E577CF612BED /* Resources */,
 				0FA68EAA7F3699612BEAC554 /* Frameworks */,
 			);
 			buildRules = (
@@ -447,6 +450,15 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0B187B151BB1E577CF612BED /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				354475E7AE558882C3DB3F15 /* 7z.icns in Resources */,
+				FF23507A69B7ACC79AF7168C /* zip.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3EC02470DB9A80E38E6132B5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

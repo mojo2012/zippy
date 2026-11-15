@@ -60,7 +60,7 @@ E-Mail-Adresse in die Signatur, darum ad hoc.
 
 ## ArchiveCore (Archiv-Kern)
 
-Swift-Package mit libarchive: liest das Inhaltsverzeichnis (ZIP, TAR) in einen Ordnerbaum
+Swift-Package mit libarchive: liest das Inhaltsverzeichnis (ZIP, TAR, 7z, RAR) in einen Ordnerbaum
 und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cache entpackt).
 
     ./scripts/build-libarchive.sh          # einmalig: libarchive bauen (Prüfsumme wird geprüft)
@@ -70,6 +70,26 @@ und liefert Dateiinhalte an beliebigen Stellen (beim ersten Zugriff in einen Cac
 
 `build-libarchive.sh` baut liblzma (xz-utils) statisch mit und packt sie in dieselbe
 Bibliothek; damit gehen 7z, `.tar.xz` und LZMA-Einträge in ZIPs.
+
+### Formate
+
+libarchive erledigt Lesen und Schreiben aller Formate. Lesen, Index, Entpacken und Speichern
+sind daher gemeinsamer Code (`Archive`, `EditableArchive`). Was sich je Format unterscheidet,
+steht in `Sources/ArchiveCore/Formats/`:
+
+- `ArchiveFormatHandler` (Protokoll, „Interface“): Anzeigename, Symbol, Leseformate bei
+  libarchive anmelden, schreibbar?, entschlüsselbar?, verschlüsselt speicherbar?, Passwort
+  setzen/entfernen?, prüft das Format das Passwort selbst?, Writer einrichten. Die
+  Protokoll-Erweiterung liefert die Standardwerte, wie eine abstrakte Basisklasse.
+- `ZipFormat`, `TarFormat` (mit Kompression), `SevenZipFormat`, `RarFormat`: je eine
+  Implementierung, überschreibt nur, was anders ist.
+- `ArchiveFormat` (Enum): nur der Name des Formats, vergleichbar (`archive.format == .rar`).
+  `handler` liefert die Implementierung, `init(detectedBy:)` erkennt das Format beim Lesen.
+
+Neues Format: Implementierung anlegen, in `ArchiveFormat` einen Fall ergänzen und in
+`handler` und `readable` eintragen. Mehr nicht, der Compiler meldet jede vergessene Stelle.
+Ausnahme: Namensschemata geteilter Archive (`ArchiveParts`) hängen am Dateinamen, nicht am
+Format.
 
 ### Dateinamen ohne UTF-8
 
@@ -327,8 +347,10 @@ bewusst ohne Schlüsselbund, das Eintippen ist die Bestätigung), dann entfernen
 
 Target `ZippyThumbnails` (Quick-Look-Vorschaubild-Erweiterung, `app-extension`, liegt in
 `Zippy.app/Contents/PlugIns`). Finder fragt sie nach dem Vorschaubild für ZIP und 7z.
-Verschlüsselt (`needsPassword` oder `passwordRequired`) → Typsymbol des Systems mit
-orangem Schloss; sonst nur das Typsymbol. Nicht ablehnen: Bei einer Absage behält der
+Verschlüsselt (`needsPassword` oder `passwordRequired`) → Typsymbol mit orangem Schloss
+am Eselsohr; sonst nur das Typsymbol. Das Typsymbol ist Zippys eigenes `zip.icns`/`7z.icns`
+(in die Erweiterung kopiert), nicht `NSWorkspace.icon(for:)`: Das liefert während Launch
+Services die App neu registriert ein graues Ersatzsymbol, und der Finder behält es. Nicht ablehnen: Bei einer Absage behält der
 Finder das letzte Vorschaubild, nach dem Entfernen des Passworts bliebe das Schloss stehen.
 Läuft ad hoc signiert, braucht nur die Sandbox (Zugriff auf die Datei gibt Quick Look).
 Ohne weiteres rahmt der Finder Vorschaubilder wie Fotos (Kachel mit Hintergrund, kleiner).

@@ -23,43 +23,6 @@ public enum ArchiveError: Error, Equatable, LocalizedError {
     }
 }
 
-/// Archive format, detected from the content when opening. Determines how changes are saved.
-public enum ArchiveFormat: Sendable, Equatable {
-    case zip
-    case tar(Compression)
-    case sevenZip
-    /// RAR 4 and 5. Read-only: libarchive can't write RAR.
-    case rar
-
-    /// Compression wrapped around a TAR.
-    public enum Compression: Sendable, Equatable {
-        case none, gzip, bzip2, compress, xz
-    }
-
-    /// Name of the document icon in Zippy/Resources/Icons.
-    public var iconName: String {
-        switch self {
-        case .zip: "zip"
-        case .tar: "tgz"
-        case .sevenZip: "7z"
-        case .rar: "rar"
-        }
-    }
-
-    /// Whether Zippy can save changes in this format.
-    public var isWritable: Bool { self != .rar }
-
-    /// For messages: "ZIP", "TAR", "7z", "RAR".
-    public var displayName: String {
-        switch self {
-        case .zip: "ZIP"
-        case .tar: "TAR"
-        case .sevenZip: "7z"
-        case .rar: "RAR"
-        }
-    }
-}
-
 /// An open archive (ZIP, TAR, 7z or RAR): the index plus read access to its files.
 ///
 /// Reading: on first access a file is extracted completely into a cache directory and
@@ -84,20 +47,20 @@ public final class Archive: @unchecked Sendable {
         index.entries.values.contains { $0.isEncrypted && $0.kind == .file }
     }
 
-    /// Whether Zippy can save changes. Not for RAR, not for split archives (the parts would
-    /// have to be re-split), and not for encrypted 7z: libarchive can decrypt 7z but not
-    /// write it encrypted, and silently writing it back unencrypted would be a security hole.
+    /// Whether Zippy can save changes: the format must be writable (and able to keep the
+    /// encryption, if there is any), and the archive must not be split (the parts would have
+    /// to be re-split).
     public var canSave: Bool {
-        format.isWritable && parts.isEmpty && !(format == .sevenZip && needsPassword)
+        let handler = format.handler
+        return handler.isWritable && parts.isEmpty && (!needsPassword || handler.canSaveEncrypted)
     }
 
-    /// Whether Zippy can set or change a password. ZIP only (AES-256).
-    public var canSetPassword: Bool { format == .zip && parts.isEmpty }
+    /// Whether Zippy can set or change a password (ZIP, AES-256).
+    public var canSetPassword: Bool { format.handler.canSetPassword && parts.isEmpty }
 
-    /// Whether Zippy can remove the password: ZIP and 7z, which Zippy can decrypt and
-    /// rewrite unencrypted.
+    /// Whether Zippy can decrypt the archive and save it without a password (ZIP, 7z).
     public var canRemovePassword: Bool {
-        (format == .zip || format == .sevenZip) && parts.isEmpty && needsPassword
+        format.handler.canRemovePassword && parts.isEmpty && needsPassword
     }
 
     private let cacheDirectory: URL
@@ -133,9 +96,8 @@ public final class Archive: @unchecked Sendable {
         self.source = source
         self.password = password
         (self.index, self.format) = try Self.buildIndex(source: source, rootDate: date, password: password)
-        // libarchive detects encrypted RAR data but can't decrypt it.
-        // 7z works thanks to scripts/patches/libarchive-7zip-aes.patch.
-        if format == .rar, index.entries.values.contains(where: { $0.isEncrypted }) {
+        // libarchive detects encrypted RAR data but can't decrypt it
+        if !format.handler.canDecrypt, index.entries.values.contains(where: { $0.isEncrypted }) {
             throw ArchiveError.openFailed(Self.encryptedUnsupported(format))
         }
         self.cacheDirectory = FileManager.default.temporaryDirectory
@@ -199,9 +161,7 @@ public final class Archive: @unchecked Sendable {
             let file = cacheDirectory.appendingPathComponent(String(entry.id))
             do {
                 try extract(position: position, to: file)
-            } catch ArchiveError.readFailed where format == .sevenZip && entry.isEncrypted {
-                // 7z doesn't verify the password: a wrong key yields garbage that only
-                // decompression notices ("Decompression failed", checksum errors).
+            } catch ArchiveError.readFailed where entry.isEncrypted && !format.handler.verifiesPassword {
                 throw ArchiveError.wrongPassword
             }
             extracted[entry.id] = file
@@ -253,13 +213,6 @@ public final class Archive: @unchecked Sendable {
     static let typeSymlink: UInt32 = 0o120000
     static let typeRegular: UInt32 = 0o100000
 
-    // archive.h: ARCHIVE_FORMAT_BASE_MASK, ARCHIVE_FORMAT_TAR, ARCHIVE_FORMAT_7ZIP, ARCHIVE_FORMAT_RAR(_V5)
-    private static let formatMask: Int32 = 0xff0000
-    private static let formatTar: Int32 = 0x30000
-    private static let format7Zip: Int32 = 0xE0000
-    private static let formatRar: Int32 = 0xD0000
-    private static let formatRar5: Int32 = 0x100000
-
     static func encryptedUnsupported(_ format: ArchiveFormat) -> String {
         String(localized: "encrypted \(format.displayName) archives aren’t supported yet", bundle: .module)
     }
@@ -289,15 +242,17 @@ public final class Archive: @unchecked Sendable {
                 if reason.localizedCaseInsensitiveContains("incorrect passphrase") {
                     throw ArchiveError.wrongPassword
                 }
-                // 7z with encrypted file names and a wrong password: the decrypted header is
-                // garbage and libarchive reports a decompression error.
-                if password != nil, detectFormat(archive) == .sevenZip {
+                // Encrypted file names and a wrong password, in a format that doesn't check
+                // passwords (7z): the decrypted header is garbage, libarchive reports a
+                // decompression error.
+                let detected = ArchiveFormat(detectedBy: archive)
+                if password != nil, !detected.handler.verifiesPassword {
                     throw ArchiveError.wrongPassword
                 }
                 throw ArchiveError.openFailed(reason.localizedCaseInsensitiveContains("encrypt")
-                                              ? encryptedUnsupported(detectFormat(archive)) : reason)
+                                              ? encryptedUnsupported(detected) : reason)
             }
-            if position == 0 { format = detectFormat(archive) }
+            if position == 0 { format = ArchiveFormat(detectedBy: archive) }
             defer {
                 archive_read_data_skip(archive)
                 position += 1
@@ -364,7 +319,7 @@ public final class Archive: @unchecked Sendable {
                          symlinkTarget: record.symlinkTarget.map(text),
                          isEncrypted: record.isEncrypted, archiveIndex: dataPosition)
         }
-        if position == 0 { format = detectFormat(archive) }   // empty archive
+        if position == 0 { format = ArchiveFormat(detectedBy: archive) }   // empty archive
         return (index, format)
     }
 
@@ -402,25 +357,6 @@ public final class Archive: @unchecked Sendable {
         let symlinkTarget: Name?
         let hardlink: Name?
         let isEncrypted: Bool
-    }
-
-    private static func detectFormat(_ archive: OpaquePointer) -> ArchiveFormat {
-        switch archive_format(archive) & formatMask {
-        case formatTar:
-            return switch archive_filter_code(archive, 0) {
-            case ARCHIVE_FILTER_GZIP: .tar(.gzip)
-            case ARCHIVE_FILTER_BZIP2: .tar(.bzip2)
-            case ARCHIVE_FILTER_COMPRESS: .tar(.compress)
-            case ARCHIVE_FILTER_XZ: .tar(.xz)
-            default: .tar(.none)
-            }
-        case format7Zip:
-            return .sevenZip
-        case formatRar, formatRar5:
-            return .rar
-        default:
-            return .zip
-        }
     }
 
     // MARK: libarchive
@@ -462,15 +398,9 @@ final class ArchiveReader {
         self.archive = archive
         self.state = Unmanaged.passRetained(State(source: source))
 
-        archive_read_support_format_zip(archive)
-        archive_read_support_format_tar(archive)
-        archive_read_support_filter_gzip(archive)
-        archive_read_support_filter_bzip2(archive)
-        archive_read_support_filter_compress(archive)
-        archive_read_support_filter_xz(archive)
-        archive_read_support_format_7zip(archive)
-        archive_read_support_format_rar(archive)
-        archive_read_support_format_rar5(archive)
+        for format in ArchiveFormat.readable {
+            format.enableReading(on: archive)
+        }
         if let password {
             for variant in Self.passwordVariants(password) {
                 variant.withUnsafeBufferPointer { _ = archive_read_add_passphrase(archive, $0.baseAddress) }

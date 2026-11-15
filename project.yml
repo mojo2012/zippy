@@ -101,7 +101,10 @@ targets:
   ZippyThumbnails:
     type: app-extension
     platform: macOS
-    sources: [ZippyThumbnails]
+    sources:
+      - ZippyThumbnails
+      - {path: Zippy/Resources/Icons/zip.icns, buildPhase: resources}
+      - {path: Zippy/Resources/Icons/7z.icns, buildPhase: resources}
     dependencies:
       - package: ArchiveCore
       - sdk: QuickLookThumbnailing.framework

@@ -396,38 +396,7 @@ public final class EditableArchive: @unchecked Sendable {
             _ = utf8Locale
             guard let writer = archive_write_new() else { throw ArchiveError.writeFailed("libarchive") }
             defer { archive_write_free(writer) }
-            var status: Int32
-            switch archive.format {
-            case .zip:
-                status = archive_write_set_format_zip(writer)
-                if status == ARCHIVE_OK, let password {
-                    status = archive_write_set_options(writer, "zip:encryption=aes256")
-                    if status == ARCHIVE_OK {
-                        status = archive_write_set_passphrase(writer, password.precomposedStringWithCanonicalMapping)
-                    }
-                }
-            case .tar where password != nil, .sevenZip where password != nil:
-                throw ArchiveError.writeFailed(
-                    String(localized: "\(archive.format.displayName) archives can’t be saved with a password", bundle: .module))
-            case .tar(let compression):
-                // pax: long names, UTF-8, nanoseconds; no pax extensions where not needed
-                status = archive_write_set_format_pax_restricted(writer)
-                if status == ARCHIVE_OK {
-                    status = switch compression {
-                    case .none: ARCHIVE_OK
-                    case .gzip: archive_write_add_filter_gzip(writer)
-                    case .bzip2: archive_write_add_filter_bzip2(writer)
-                    case .compress: archive_write_add_filter_compress(writer)
-                    case .xz: archive_write_add_filter_xz(writer)
-                    }
-                }
-            case .sevenZip:
-                status = archive_write_set_format_7zip(writer)
-                if status == ARCHIVE_OK { status = archive_write_set_options(writer, "7zip:compression=lzma2") }
-            case .rar:
-                throw ArchiveError.writeFailed(String(localized: "RAR archives can’t be written", bundle: .module))
-            }
-            guard status == ARCHIVE_OK else { throw ArchiveError.writeFailed(Archive.message(writer)) }
+            try archive.format.handler.configureWriter(writer, password: password)
             try? FileManager.default.removeItem(at: destination)
             guard archive_write_open_filename(writer, destination.path) == ARCHIVE_OK else {
                 throw ArchiveError.writeFailed(Archive.message(writer))

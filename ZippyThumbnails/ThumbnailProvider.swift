@@ -14,8 +14,7 @@ final class ThumbnailProvider: QLThumbnailProvider {
                                    _ handler: @escaping (QLThumbnailReply?, Error?) -> Void) {
         let url = request.fileURL
         let locked = Self.isEncrypted(url)
-        let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType ?? .archive
-        let icon = NSWorkspace.shared.icon(for: type)
+        let icon = Self.typeIcon(for: url)
         let side = min(request.maximumSize.width, request.maximumSize.height)
         let size = CGSize(width: side, height: side)
 
@@ -35,6 +34,15 @@ final class ThumbnailProvider: QLThumbnailProvider {
         if reply.responds(to: NSSelectorFromString("setIconFlavor:")) {
             reply.setValue(0, forKey: "iconFlavor")
         }
+    }
+
+    /// Zippy's own document icon (bundled with the extension), the same picture the system
+    /// shows. Not `NSWorkspace.icon(for:)`: while Launch Services is updating (installing or
+    /// updating the app) it returns a generic icon, and Finder keeps that thumbnail.
+    static func typeIcon(for url: URL) -> NSImage {
+        let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+        let name = type.map { $0.conforms(to: UTType("org.7-zip.7-zip-archive") ?? .archive) } == true ? "7z" : "zip"
+        return Bundle.main.image(forResource: name) ?? NSWorkspace.shared.icon(for: type ?? .zip)
     }
 
     /// 7z with encrypted file names can't even be listed without the password.
