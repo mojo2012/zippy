@@ -17,9 +17,11 @@ The app's dialogs and messages are currently in German.
   change files. Everything is saved into the archive when you eject.
 - **Password-protected archives:** ZIP (ZipCrypto and WinZip AES) and 7z (AES-256, also
   with encrypted file names). Zippy asks for the password and can store it in your keychain.
-- **Set or remove a password from Finder:** right-click a ZIP and choose
-  **Services → Set Password with Zippy…** (AES-256), or **Remove Password with Zippy**
-  for ZIP and 7z archives.
+- **Add or remove a password from Finder:** right-click an archive and choose
+  **Services → Password Protection with Zippy…**. An unprotected ZIP gets a password
+  (AES-256); a protected ZIP or 7z loses it once you enter the current password.
+- **Lock on the icon:** in Finder, password-protected ZIP and 7z archives show a lock
+  on their icon (a Quick Look thumbnail extension that comes with the app).
 - **File names from any system:** ZIPs packed on Windows without Unicode names (for example
   in Chinese, Japanese, Russian or old DOS code pages) show their file names correctly.
 - **Lazy extraction:** a file is only extracted when it is first read, so large archives
@@ -98,8 +100,9 @@ with an ad-hoc signature and registers it with Launch Services. The app ends up 
   of a type, select one, press ⌘I, pick Zippy under "Open with" and click "Change All…".
 - The archive opens as a drive and a Finder window shows its contents.
 - Edit as you like, then eject the drive (eject button, ⌘E, or drag it to the trash).
-- To add, change or remove a password, right-click the archive and open **Services**
-  (in some Finder versions under **Quick Actions → Services**). The archive is rewritten
+- To add or remove a password, right-click the archive and choose **Services → Password
+  Protection with Zippy…** (in some Finder versions under **Quick Actions → Services**).
+  To change a password, remove it and set a new one. The archive is rewritten
   in place and must not be open as a drive. A ZIP password protects file contents only:
   file names, folders and empty files stay readable.
 

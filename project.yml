@@ -44,13 +44,8 @@ targets:
         NSPrincipalClass: NSApplication
         # Finder: right-click → Services. Titles translated in Zippy/Resources/ServicesMenu.xcstrings
         NSServices:
-          - NSMenuItem: {default: "Set Password with Zippy…"}
-            NSMessage: setPassword
-            NSPortName: Zippy
-            NSRequiredContext: {}
-            NSSendFileTypes: [public.zip-archive, com.pkware.zip-archive]
-          - NSMenuItem: {default: "Remove Password with Zippy"}
-            NSMessage: removePassword
+          - NSMenuItem: {default: "Password Protection with Zippy…"}
+            NSMessage: passwordProtection
             NSPortName: Zippy
             NSRequiredContext: {}
             NSSendFileTypes: [public.zip-archive, com.pkware.zip-archive, org.7-zip.7-zip-archive]
@@ -94,10 +89,43 @@ targets:
     dependencies:
       - package: ArchiveCore
       - package: FuseMount
+      - target: ZippyThumbnails
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy
         ENABLE_HARDENED_RUNTIME: YES
+
+  # Quick Look thumbnail extension, embedded in Zippy.app/Contents/PlugIns:
+  # password-protected ZIP and 7z archives get a lock on their Finder icon.
+  ZippyThumbnails:
+    type: app-extension
+    platform: macOS
+    sources: [ZippyThumbnails]
+    dependencies:
+      - package: ArchiveCore
+      - sdk: QuickLookThumbnailing.framework
+    info:
+      path: ZippyThumbnails/Info.plist
+      properties:
+        CFBundleDisplayName: Zippy Thumbnails
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.quicklook.thumbnail
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ThumbnailProvider
+          NSExtensionAttributes:
+            QLSupportedContentTypes: [public.zip-archive, com.pkware.zip-archive, org.7-zip.7-zip-archive]
+            QLThumbnailMinimumDimension: 0
+    entitlements:
+      path: ZippyThumbnails/ZippyThumbnails.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.zippy.Zippy.Thumbnails
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
 
   # FSKit variant: own file system extension, sandboxed, App Store compatible.
   # Needs a paid Developer account (entitlement com.apple.developer.fskit.fsmodule).

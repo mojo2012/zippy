@@ -119,28 +119,10 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Set Password with Zippy…</string>
+				<string>Password Protection with Zippy…</string>
 			</dict>
 			<key>NSMessage</key>
-			<string>setPassword</string>
-			<key>NSPortName</key>
-			<string>Zippy</string>
-			<key>NSRequiredContext</key>
-			<dict/>
-			<key>NSSendFileTypes</key>
-			<array>
-				<string>public.zip-archive</string>
-				<string>com.pkware.zip-archive</string>
-			</array>
-		</dict>
-		<dict>
-			<key>NSMenuItem</key>
-			<dict>
-				<key>default</key>
-				<string>Remove Password with Zippy</string>
-			</dict>
-			<key>NSMessage</key>
-			<string>removePassword</string>
+			<string>passwordProtection</string>
 			<key>NSPortName</key>
 			<string>Zippy</string>
 			<key>NSRequiredContext</key>

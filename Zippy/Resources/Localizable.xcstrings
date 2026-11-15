@@ -49,22 +49,6 @@
         }
       }
     },
-    "“%@” has no password." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "„%@“ hat kein Passwort."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@” has no password."
-          }
-        }
-      }
-    },
     "A ZIP password protects only file contents. Folders and empty files stay readable." : {
       "localizations" : {
         "de" : {
@@ -1133,6 +1117,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The volume didn’t appear. Is the Zippy file system extension turned on? (System Settings → General → Login Items & Extensions → File System Extensions)"
+          }
+        }
+      }
+    },
+    "“%@” is protected with a password." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist mit einem Passwort geschützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is protected with a password."
+          }
+        }
+      }
+    },
+    "To remove the protection, enter the password. The archive is then saved without encryption." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um den Schutz zu entfernen, gib das Passwort ein. Das Archiv wird dann unverschlüsselt gespeichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To remove the protection, enter the password. The archive is then saved without encryption."
+          }
+        }
+      }
+    },
+    "Remove Password" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwort entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Password"
           }
         }
       }

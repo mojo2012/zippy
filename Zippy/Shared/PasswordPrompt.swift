@@ -29,11 +29,31 @@ enum PasswordPrompt {
 
         var problem: String?
         while true {
-            guard let (password, remember) = ask(archive: archive, problem: problem) else { throw Cancelled() }
+            guard let (password, remember) = ask(
+                String(localized: "“\(archive.lastPathComponent)” is password-protected."),
+                info: problem ?? String(localized: "Enter the password to open the archive."), isProblem: problem != nil,
+                button: String(localized: "Open"), offerRemember: true
+            ) else { throw Cancelled() }
             if await isCorrect(password, for: archive) {
                 if remember { storePassword(password, for: archive) }
                 return password
             }
+            problem = String(localized: "The password is wrong. Please try again.")
+        }
+    }
+
+    /// Asks for the current password to confirm removing it. Repeats until the
+    /// password is correct; `nil` if the user cancels. Deliberately ignores the
+    /// keychain: typing the password is the confirmation.
+    static func confirmRemoval(of archive: URL) async -> String? {
+        var problem: String?
+        while true {
+            guard let (password, _) = ask(
+                String(localized: "“\(archive.lastPathComponent)” is protected with a password."),
+                info: problem ?? String(localized: "To remove the protection, enter the password. The archive is then saved without encryption."),
+                isProblem: problem != nil, button: String(localized: "Remove Password"), offerRemember: false
+            ) else { return nil }
+            if await isCorrect(password, for: archive) { return password }
             problem = String(localized: "The password is wrong. Please try again.")
         }
     }
@@ -49,28 +69,31 @@ enum PasswordPrompt {
         }.value
     }
 
-    /// Alert with a password field and a "Remember in Keychain" checkbox.
-    private static func ask(archive: URL, problem: String?) -> (password: String, remember: Bool)? {
+    /// Alert with a password field and, optionally, a "Remember in Keychain" checkbox.
+    private static func ask(_ message: String, info: String, isProblem: Bool,
+                            button: String, offerRemember: Bool) -> (password: String, remember: Bool)? {
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = String(localized: "“\(archive.lastPathComponent)” is password-protected.")
-        alert.informativeText = problem ?? String(localized: "Enter the password to open the archive.")
-        if problem != nil { alert.alertStyle = .warning }
-        alert.addButton(withTitle: String(localized: "Open"))
+        alert.messageText = message
+        alert.informativeText = info
+        if isProblem { alert.alertStyle = .warning }
+        alert.addButton(withTitle: button)
         alert.addButton(withTitle: String(localized: "Cancel"))
 
-        let field = NSSecureTextField(frame: NSRect(x: 0, y: 28, width: 260, height: 24))
+        let field = NSSecureTextField(frame: NSRect(x: 0, y: offerRemember ? 28 : 0, width: 260, height: 24))
         field.placeholderString = String(localized: "Password")
-        let remember = NSButton(checkboxWithTitle: String(localized: "Remember in Keychain"), target: nil, action: nil)
-        remember.frame = NSRect(x: 0, y: 0, width: 260, height: 20)
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: offerRemember ? 54 : 24))
         accessory.addSubview(field)
-        accessory.addSubview(remember)
+        let remember = NSButton(checkboxWithTitle: String(localized: "Remember in Keychain"), target: nil, action: nil)
+        if offerRemember {
+            remember.frame = NSRect(x: 0, y: 0, width: 260, height: 20)
+            accessory.addSubview(remember)
+        }
         alert.accessoryView = accessory
         alert.window.initialFirstResponder = field
 
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-        return (field.stringValue, remember.state == .on)
+        return (field.stringValue, offerRemember && remember.state == .on)
     }
 
     /// Asks for a new password, entered twice. `nil` if the user cancels.

@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mounter.cleanUp()
         // Must be set before launching finishes, or a click on a notification gets lost.
         UNUserNotificationCenter.current().delegate = self
-        // Finder services (NSServices in Info.plist): set/remove password.
+        // Finder service (NSServices in Info.plist): add or remove a password.
         NSApp.servicesProvider = self
     }
 
@@ -159,27 +159,17 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 // MARK: - Finder services
 
 extension AppDelegate {
-    /// Right-click → Services → "Set Password with Zippy…" (ZIP only).
-    @objc(setPassword:userData:error:)
-    func setPassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
-        runService(.set, pasteboard)
-    }
-
-    /// Right-click → Services → "Remove Password with Zippy" (ZIP, 7z).
-    @objc(removePassword:userData:error:)
-    func removePassword(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
-        runService(.remove, pasteboard)
-    }
-
-    private func runService(_ action: PasswordChanger.Action, _ pasteboard: NSPasteboard) {
+    /// Right-click → Services → "Password Protection with Zippy…" (ZIP, 7z).
+    @objc(passwordProtection:userData:error:)
+    func passwordProtection(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
         hasJob = true
         let urls = pasteboard.readObjects(forClasses: [NSURL.self],
                                           options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        log.info("Service \(action == .set ? "set password" : "remove password", privacy: .public): \(urls.map(\.lastPathComponent), privacy: .public)")
+        log.info("Service password protection: \(urls.map(\.lastPathComponent), privacy: .public)")
         runningServices += 1
         Task {
             for url in urls {
-                await PasswordChanger.run(action, on: url) { mounter.mountedVolume(for: $0) != nil }
+                await PasswordChanger.run(on: url) { mounter.mountedVolume(for: $0) != nil }
             }
             runningServices -= 1
             quitIfDone()

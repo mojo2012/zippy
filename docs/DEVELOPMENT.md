@@ -302,12 +302,15 @@ CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
   eine zufällige ID, die Erweiterung löscht den Eintrag nach dem Lesen. Braucht Team-ID;
   ohne lehnt die FSKit-Variante passwortgeschützte ZIPs mit einem Hinweis ab. Ungetestet.
 
-### Passwort über die Finder-Dienste setzen oder entfernen
+### Passwort über den Finder-Dienst setzen oder entfernen
 
 `NSServices` in `project.yml` (nur Variante Zippy; Zippy-FSKit überschreibt mit
-`NSServices: []`, sonst stehen die Einträge doppelt im Menü). Menütexte übersetzt in
-`Zippy/Resources/ServicesMenu.xcstrings`. Handler in `AppDelegate` (`setPassword:` /
-`removePassword:`), Ablauf in `Zippy/Shared/PasswordChanger.swift`:
+`NSServices: []`, sonst steht der Eintrag doppelt im Menü). Ein einziger Eintrag
+„Passwortschutz mit Zippy …“, Menütext übersetzt in `Zippy/Resources/ServicesMenu.xcstrings`.
+Handler `passwordProtection:` in `AppDelegate`, Ablauf in `Zippy/Shared/PasswordChanger.swift`.
+Was passiert, hängt vom Archiv ab: ungeschützt → neues Passwort (zweimal eingeben);
+geschützt → Hinweis und aktuelles Passwort abfragen (`PasswordPrompt.confirmRemoval`,
+bewusst ohne Schlüsselbund, das Eintippen ist die Bestätigung), dann entfernen.
 
 - Gemountete Archive werden abgelehnt (Speichern beim Auswerfen würde überschreiben).
 - Setzen nur bei ZIP (AES-256), Entfernen bei ZIP und 7z. Umgeschrieben wird mit
@@ -318,7 +321,25 @@ CommonCrypto). Dateinamen sind bei ZIP nie verschlüsselt, Auflisten geht immer.
 - Mehrere Zippy-Kopien registriert (Debug, Release, Testkopien)? Dann landet der Dienst
   evtl. bei einer alten Version. Aufräumen mit `lsregister -u <App>`, danach
   `/System/Library/CoreServices/pbs -update`. Test ohne Finder: `NSPerformService` mit
-  dem englischen Menütitel („Set Password with Zippy…“).
+  dem englischen Menütitel („Password Protection with Zippy…“).
+
+### Schloss am Dateisymbol
+
+Target `ZippyThumbnails` (Quick-Look-Vorschaubild-Erweiterung, `app-extension`, liegt in
+`Zippy.app/Contents/PlugIns`). Finder fragt sie nach dem Vorschaubild für ZIP und 7z.
+Verschlüsselt (`needsPassword` oder `passwordRequired`) → Typsymbol des Systems mit
+orangem Schloss; sonst nur das Typsymbol. Nicht ablehnen: Bei einer Absage behält der
+Finder das letzte Vorschaubild, nach dem Entfernen des Passworts bliebe das Schloss stehen.
+Läuft ad hoc signiert, braucht nur die Sandbox (Zugriff auf die Datei gibt Quick Look).
+Ohne weiteres rahmt der Finder Vorschaubilder wie Fotos (Kachel mit Hintergrund, kleiner).
+Dagegen hilft die undokumentierte Eigenschaft `iconFlavor = 0` („plain“) an
+`QLThumbnailReply`, per KVC gesetzt und vorher mit `responds(to:)` geprüft.
+Nach dem Umschreiben ändert sich das Änderungsdatum, der Finder fragt dann neu.
+
+Testen ohne Finder: `qlmanage -t -i -x -s 256 -o <Ordner> <Archiv>`; `-i` rechnet wie der
+Finder im Symbolmodus (mit Rahmen, falls einer drankommt), ohne `-x` hängt qlmanage bei
+Erweiterungen. Registrierung: `pluginkit -m -v -i dev.zippy.Zippy.Thumbnails`,
+Vorschau-Cache leeren mit `qlmanage -r cache`.
 
 ## Bearbeiten
 

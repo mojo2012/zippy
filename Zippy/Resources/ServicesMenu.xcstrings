@@ -1,34 +1,18 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Remove Password with Zippy": {
+    "Password Protection with Zippy…": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passwort mit Zippy entfernen"
+            "value": "Passwortschutz mit Zippy …"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove Password with Zippy"
-          }
-        }
-      }
-    },
-    "Set Password with Zippy…": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Passwort mit Zippy festlegen …"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set Password with Zippy…"
+            "value": "Password Protection with Zippy…"
           }
         }
       }
