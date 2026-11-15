@@ -15,6 +15,7 @@ protocol ArchiveFormatHandler: Sendable {
     var iconName: String { get }
 
     /// Enables this format, and any compression filters it needs, on a libarchive reader.
+    /// Formats with their own ``EntryReader`` do nothing here.
     func enableReading(on reader: OpaquePointer)
 
     /// Whether Zippy can save changes in this format at all. Default: yes.
@@ -50,6 +51,7 @@ extension ArchiveFormatHandler {
     var canSetPassword: Bool { false }
     var canRemovePassword: Bool { false }
     var verifiesPassword: Bool { true }
+    func enableReading(on reader: OpaquePointer) {}
 
     /// For formats Zippy can't encrypt.
     func rejectPassword(_ password: String?) throws {

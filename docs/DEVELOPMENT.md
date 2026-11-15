@@ -86,10 +86,55 @@ steht in `Sources/ArchiveCore/Formats/`:
 - `ArchiveFormat` (Enum): nur der Name des Formats, vergleichbar (`archive.format == .rar`).
   `handler` liefert die Implementierung, `init(detectedBy:)` erkennt das Format beim Lesen.
 
-Neues Format: Implementierung anlegen, in `ArchiveFormat` einen Fall ergänzen und in
-`handler` und `readable` eintragen. Mehr nicht, der Compiler meldet jede vergessene Stelle.
+Neues libarchive-Format: Implementierung anlegen, in `ArchiveFormat` einen Fall ergänzen
+und in `handler` und `libarchiveFormats` eintragen. Mehr nicht, der Compiler meldet jede vergessene Stelle.
 Ausnahme: Namensschemata geteilter Archive (`ArchiveParts`) hängen am Dateinamen, nicht am
 Format.
+
+Lesen: `Archive` kennt nur das Protokoll `EntryReader` (`Readers/`): Inhaltsverzeichnis
+liefern, eine Datei an Position n vollständig in eine Datei schreiben. Cache, Passwörter
+und Lesen an beliebigen Stellen macht `Archive` für alle gleich.
+- `LibarchiveEntryReader`: ZIP, TAR, 7z, RAR (ein Durchlauf über alle Header; Entpacken =
+  neuer Durchlauf bis zur Position).
+- `SQLiteEntryReader`: Formate, die libarchive nicht kennt, bringen ihren eigenen Reader.
+  Erkannt am Dateianfang „SQLite format 3“, nicht an der Endung.
+
+### SQLite
+
+Pro Tabelle und View ein Ordner `<name>/` mit `<name>.csv`, `<name>.json`, `<name>.ddl` und
+bei großen BLOBs `blobs/`; im obersten Ordner `_schema.sql`, `_dump.sql`, `_info.txt`. Die
+Dateien im Tabellenordner behalten den Tabellennamen, damit sie herausgezogen noch
+erkennbar sind; BLOB-Pfade in CSV/JSON sind relativ (`blobs/1-photo.png`), damit sie auch
+im herauskopierten Ordner stimmen. Alles nur lesend
+(`sqlite3_open_v2` mit `SQLITE_OPEN_READONLY`, die Datei bleibt unverändert; Test `isReadOnly`).
+Code: `Readers/SQLiteEntryReader.swift` (Dateien, Dump, BLOB-Typen, Verbindung),
+`Readers/SQLiteTable.swift` (Zeilen als CSV/JSON/INSERT, Datumsregeln),
+`Readers/SQLiteInfo.swift`.
+
+- Alles wird beim Öffnen gerendert (Ordner im Temp-Verzeichnis), weil die Dateigröße
+  vor dem ersten Lesen feststehen muss und die Spaltenbreiten ohnehin alle Zeilen brauchen.
+  Jede Ausgabe ist ein eigenes `SELECT *`, im Speicher nur eine Zeile und die Breiten.
+- CSV ist für Excel gedacht: UTF-8 mit BOM (sonst kaputte Umlaute), Zellen auf die
+  breiteste Zelle der Spalte aufgefüllt, ohne Obergrenze. Auffüllen *vor* dem Komma
+  („Alice     ,“): Excel erkennt ein Feld in Anführungszeichen nur direkt nach dem Komma,
+  „, "Bob, Jr."“ würde es am inneren Komma zerlegen. RFC-4180-Quoting, auch bei Leerzeichen
+  am Rand. Breite in Monospace-Spalten: ostasiatische Zeichen und Emoji zählen doppelt.
+  Hinweis: Deutsches Excel erwartet beim Doppelklick „;“ als Trenner; über Daten →
+  Aus Text/CSV geht „,“ problemlos.
+- Datum: Spalten mit `DATE`/`TIMESTAMP` im deklarierten Typ. Zahlen: Julianischer Tag
+  (1 721 059,5–5 373 484,5), sonst Unix-Sekunden, ab 1e11 Millisekunden, ab 1e14
+  Mikrosekunden; Core-Data-Datenbanken (Tabelle `Z_METADATA`) zählen ab 2001. Text:
+  „2024-03-01 12:30:00“ → „2024-03-01T12:30:00“, dazu dd.MM.yyyy und yyyy/MM/dd. Was nicht
+  passt, bleibt wie es ist. Zahlen werden als UTC mit „Z“ ausgegeben.
+- BLOBs bis 32 Bytes als `X'…'`, größere als Datei `blobs/<zeile>-<spalte>.<ext>`; die Endung
+  kommt aus den ersten Bytes (PNG, JPEG, GIF, WebP, HEIC, TIFF, PDF, plist, ZIP, gzip, XML,
+  JSON, Text, sonst `.bin`). Zeilennummer = Reihenfolge von `SELECT *`.
+- `_dump.sql` wie `sqlite3 .dump`: Werte exakt (keine Datumsumwandlung, BLOBs als Hex),
+  Schattentabellen virtueller Tabellen (`pragma_table_list`, ab SQLite 3.37) ausgelassen,
+  `sqlite_sequence` am Ende. Test `dumpRestoresTheDatabase` spielt den Dump ein und vergleicht.
+- Tabellen, die sich nicht lesen lassen (virtuelle Tabellen mit fehlendem Modul), bekommen
+  statt der Zeilen die Fehlermeldung, die übrige Datenbank geht trotzdem auf.
+- „/“ im Namen wird zu „∕“ (U+2215); gleiche Dateinamen bekommen „ (2)“.
 
 ### Dateinamen ohne UTF-8
 

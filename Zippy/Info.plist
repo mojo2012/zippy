@@ -90,6 +90,23 @@
 				<string>com.rarlab.rar-archive</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>db</string>
+				<string>sqlite</string>
+				<string>sqlite3</string>
+				<string>db3</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>db</string>
+			<key>CFBundleTypeName</key>
+			<string>SQLite Database</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>

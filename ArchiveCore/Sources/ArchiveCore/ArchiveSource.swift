@@ -14,9 +14,12 @@ public protocol ArchiveSource: Sendable {
 /// An archive in a file.
 public final class FileSource: ArchiveSource, @unchecked Sendable {
     public let size: UInt64
+    /// The file itself, for readers that need a path (SQLite).
+    public let url: URL
     private let descriptor: Int32
 
     public init(url: URL) throws {
+        self.url = url
         descriptor = open(url.path, O_RDONLY)
         guard descriptor >= 0 else {
             throw ArchiveError.openFailed(String(cString: strerror(errno)))

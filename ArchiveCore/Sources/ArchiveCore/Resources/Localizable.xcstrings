@@ -272,6 +272,22 @@
           }
         }
       }
+    },
+    "SQLite databases are read-only in Zippy": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLite-Datenbanken kann Zippy nur lesen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLite databases are read-only in Zippy"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

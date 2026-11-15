@@ -16,6 +16,7 @@
 		101C673A54B25AFD5B17EC76 /* VolumesFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3880A4081FBF7CBC0C9BABF6 /* VolumesFolder.swift */; };
 		14AAD423B04FA4B3B90170FB /* PasswordPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8BAB19FDF8FBB2359F9B824 /* PasswordPrompt.swift */; };
 		2419D2B49C0827503353AB69 /* tgz.icns in Resources */ = {isa = PBXBuildFile; fileRef = 1BEA0A6FDA039F3153485F24 /* tgz.icns */; };
+		304FCBB84D2485857E1574A6 /* db.icns in Resources */ = {isa = PBXBuildFile; fileRef = B874FA21295F8D53CC1B9022 /* db.icns */; };
 		31D89944635A65196A46D914 /* rar.icns in Resources */ = {isa = PBXBuildFile; fileRef = B4AA0818094249125119ADC5 /* rar.icns */; };
 		33DE76421CF7D56BF62852E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
 		354475E7AE558882C3DB3F15 /* 7z.icns in Resources */ = {isa = PBXBuildFile; fileRef = CAB8DBA0A68999BB177599B4 /* 7z.icns */; };
@@ -33,6 +34,7 @@
 		7278BFB7B11497996F60EC9E /* Variant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18063B0E71113506684EE860 /* Variant.swift */; };
 		744BAE8D3512B0EB369DF1C8 /* PasswordChanger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B082A831E49B264C94483BB /* PasswordChanger.swift */; };
 		76F2C6860C93FBD0834401C0 /* ZippyThumbnails.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EE60A3C63D2FC3163B11B1AB /* ZippyThumbnails.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		79E53B5193A88F25C9780B29 /* db.icns in Resources */ = {isa = PBXBuildFile; fileRef = B874FA21295F8D53CC1B9022 /* db.icns */; };
 		7A2E34E4D863A27E32BE81B0 /* ZipVolume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 044D18ABD9F753D382FF376C /* ZipVolume.swift */; };
 		8932D3E3E15F6B839F396E85 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E784A9F039C544F1A1FF5E /* Main.swift */; };
 		8E011E8C10FB05814EEB6E42 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6CF2E17BB2ABF554B741D0 /* AppDelegate.swift */; };
@@ -123,6 +125,7 @@
 		B064CFCB0FC7D2B615C34366 /* Zippy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zippy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3CB99FC1EBFE6BB5FC2A963 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		B4AA0818094249125119ADC5 /* rar.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = rar.icns; sourceTree = "<group>"; };
+		B874FA21295F8D53CC1B9022 /* db.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = db.icns; sourceTree = "<group>"; };
 		BEA3F3F86491D7DF85B48959 /* FuseHelperMounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuseHelperMounter.swift; sourceTree = "<group>"; };
 		C7E784A9F039C544F1A1FF5E /* Main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Main.swift; sourceTree = "<group>"; };
 		C8C7C76EE9CDDAD1732D8DAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -203,6 +206,7 @@
 			children = (
 				CAB8DBA0A68999BB177599B4 /* 7z.icns */,
 				B3CB99FC1EBFE6BB5FC2A963 /* AppIcon.icns */,
+				B874FA21295F8D53CC1B9022 /* db.icns */,
 				B4AA0818094249125119ADC5 /* rar.icns */,
 				1BEA0A6FDA039F3153485F24 /* tgz.icns */,
 				EC9C602B56C256B11937A04D /* zip.icns */,
@@ -467,6 +471,7 @@
 				3E8BEC3E7D57CA36241E9A43 /* AppIcon.icns in Resources */,
 				0AA215325B21628F64542880 /* Localizable.xcstrings in Resources */,
 				BA458C33E621489F17C899EB /* ServicesMenu.xcstrings in Resources */,
+				304FCBB84D2485857E1574A6 /* db.icns in Resources */,
 				31D89944635A65196A46D914 /* rar.icns in Resources */,
 				2419D2B49C0827503353AB69 /* tgz.icns in Resources */,
 				EFAC3F2F7F81A8E13811F70D /* zip.icns in Resources */,
@@ -481,6 +486,7 @@
 				5A11E26809C9064883C7280A /* AppIcon.icns in Resources */,
 				C943D6D1EEA1475641D192E4 /* Localizable.xcstrings in Resources */,
 				0F7E444FF7CC017FF58B75FB /* ServicesMenu.xcstrings in Resources */,
+				79E53B5193A88F25C9780B29 /* db.icns in Resources */,
 				607A073DFDB9FFA8B3130587 /* rar.icns in Resources */,
 				C1CB94650320AB08A2D840FA /* tgz.icns in Resources */,
 				4B14729041DED063C203F92E /* zip.icns in Resources */,

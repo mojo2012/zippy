@@ -81,6 +81,12 @@ targets:
             CFBundleTypeIconFile: rar
             LSHandlerRank: Alternate
             LSItemContentTypes: [com.rarlab.rar-archive]
+          - CFBundleTypeName: SQLite Database
+            CFBundleTypeRole: Viewer       # read-only: tables as CSV and DDL files
+            CFBundleTypeIconFile: db
+            LSHandlerRank: Alternate
+            # No common UTI for SQLite files; recognized by the header when opening
+            CFBundleTypeExtensions: [db, sqlite, sqlite3, db3]
     entitlements:
       path: Zippy/Zippy.entitlements
       properties:

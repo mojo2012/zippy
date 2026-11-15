@@ -4,13 +4,16 @@ import CArchive
 ///
 /// The enum only names the format, so it can be compared (`archive.format == .rar`) and
 /// passed around as a plain value. What a format can do lives in its
-/// ``ArchiveFormatHandler``: ``ZipFormat``, ``TarFormat``, ``SevenZipFormat``, ``RarFormat``.
+/// ``ArchiveFormatHandler``: ``ZipFormat``, ``TarFormat``, ``SevenZipFormat``, ``RarFormat``,
+/// ``SQLiteFormat``.
 public enum ArchiveFormat: Sendable, Equatable {
     case zip
     case tar(Compression)
     case sevenZip
     /// RAR 4 and 5. Read-only: libarchive can't write RAR.
     case rar
+    /// SQLite database, shown read-only as one CSV and one DDL file per table and view.
+    case sqlite
 
     /// Compression wrapped around a TAR.
     public enum Compression: Sendable, Equatable {
@@ -24,11 +27,13 @@ public enum ArchiveFormat: Sendable, Equatable {
         case .tar(let compression): TarFormat(compression: compression)
         case .sevenZip: SevenZipFormat()
         case .rar: RarFormat()
+        case .sqlite: SQLiteFormat()
         }
     }
 
-    /// All formats Zippy reads. A new format is added here and in ``handler``.
-    static let readable: [any ArchiveFormatHandler] = [
+    /// The formats read through libarchive. A new libarchive format is added here and in
+    /// ``handler``; other formats come with their own ``EntryReader``.
+    static let libarchiveFormats: [any ArchiveFormatHandler] = [
         ZipFormat(), TarFormat(compression: .none), SevenZipFormat(), RarFormat(),
     ]
 

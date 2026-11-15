@@ -1,6 +1,6 @@
-// Generates the document icons for archive types in the style of macOS document icons:
-// a white page with a folded corner, a zipper from the top and the type label at the bottom.
-// Each type has its own color (zipper + label).
+// Generates the document icons in the style of macOS document icons: a white page with a
+// folded corner, a symbol (a zipper for archives, a database cylinder for SQLite) and the
+// type label at the bottom. Each type has its own color (symbol + label).
 //
 //   swift scripts/make-icons.swift <output-folder> [preview.png]
 //
@@ -10,9 +10,12 @@
 import AppKit
 
 struct ArchiveType {
+    enum Symbol { case zipper, database }
+
     let id: String
     let label: String
     let color: NSColor
+    var symbol = Symbol.zipper
 }
 
 let types = [
@@ -20,6 +23,8 @@ let types = [
     ArchiveType(id: "rar", label: "RAR", color: NSColor(srgbRed: 0.56, green: 0.29, blue: 0.85, alpha: 1)),   // purple
     ArchiveType(id: "7z", label: "7Z", color: NSColor(srgbRed: 0.18, green: 0.62, blue: 0.33, alpha: 1)),     // green
     ArchiveType(id: "tgz", label: "TGZ", color: NSColor(srgbRed: 0.93, green: 0.50, blue: 0.13, alpha: 1)),   // orange
+    ArchiveType(id: "db", label: "DB", color: NSColor(srgbRed: 0.10, green: 0.60, blue: 0.68, alpha: 1),      // teal
+                symbol: .database),
 ]
 
 // Canvas in units of 1024, scaled to the pixel size.
@@ -94,19 +99,38 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
 
     NSGradient(starting: .white, ending: NSColor(srgbRed: 0.94, green: 0.94, blue: 0.95, alpha: 1))!
         .draw(in: pagePath(), angle: -90)
-    NSColor(srgbRed: 0.76, green: 0.76, blue: 0.79, alpha: 1).setStroke()
+    let edge = NSColor(srgbRed: 0.76, green: 0.76, blue: 0.79, alpha: 1)
+    edge.setStroke()
     let outline = pagePath(); outline.lineWidth = line; outline.stroke()
 
-    // Folded corner
+    let center: CGFloat = 512
+    switch type.symbol {
+    case .zipper: drawZipper(type.color, center: center, line: line, detailed: detailed)
+    case .database: drawDatabase(type.color, center: center, line: line)
+    }
+
+    // Folded corner, on top of the symbol
     NSGradient(starting: NSColor(srgbRed: 0.97, green: 0.97, blue: 0.98, alpha: 1),
                ending: NSColor(srgbRed: 0.84, green: 0.84, blue: 0.87, alpha: 1))!
         .draw(in: foldPath(), angle: -45)
+    edge.setStroke()
     let foldOutline = foldPath(); foldOutline.lineWidth = line; foldOutline.stroke()
 
-    // Zipper: teeth alternating left/right, from the top edge down
-    let center: CGFloat = 512
+    // Type label at the bottom
+    if detailed {
+        let base = NSFont.systemFont(ofSize: type.label.count > 2 ? 150 : 170, weight: .heavy)
+        let font = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: base.pointSize) } ?? base
+        let text = NSAttributedString(string: type.label, attributes: [.font: font, .foregroundColor: type.color, .kern: 4])
+        let size = text.size()
+        text.draw(at: NSPoint(x: center - size.width / 2, y: 112))
+    }
+
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
+func drawZipper(_ color: NSColor, center: CGFloat, line: CGFloat, detailed: Bool) {
     let zipperTop = top - 4, zipperBottom: CGFloat = 520
-    let color = type.color
     if detailed {
         let toothW: CGFloat = 46, toothH: CGFloat = 24, step: CGFloat = 30
         var y = zipperTop - toothH
@@ -140,18 +164,46 @@ func drawIcon(_ type: ArchiveType, pixels: Int) -> NSBitmapImageRep {
                                 xRadius: 13, yRadius: 13)
         NSColor.white.withAlphaComponent(0.9).setFill(); hole.fill()
     }
+}
 
-    // Type label at the bottom
-    if detailed {
-        let base = NSFont.systemFont(ofSize: type.label.count > 2 ? 150 : 170, weight: .heavy)
-        let font = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: base.pointSize) } ?? base
-        let text = NSAttributedString(string: type.label, attributes: [.font: font, .foregroundColor: color, .kern: 4])
-        let size = text.size()
-        text.draw(at: NSPoint(x: center - size.width / 2, y: 112))
+/// A database cylinder: lid, body, two white bands. As far from the page's top edge as
+/// from its sides; the folded corner is drawn over it afterwards.
+func drawDatabase(_ color: NSColor, center: CGFloat, line: CGFloat) {
+    let width: CGFloat = 340, lidHeight: CGFloat = 110
+    let margin = (right - left - width) / 2
+    let x0 = center - width / 2, x1 = center + width / 2
+    let lidY = top - margin - lidHeight / 2          // centre of the lid ellipse
+    let bodyBottom: CGFloat = 386                     // where the bottom curve starts; ~64 above the label
+
+    func lowerCurve(_ path: NSBezierPath, at y: CGFloat, from a: CGFloat, to b: CGFloat) {
+        path.curve(to: NSPoint(x: b, y: y), controlPoint1: NSPoint(x: a, y: y - lidHeight * 0.66),
+                   controlPoint2: NSPoint(x: b, y: y - lidHeight * 0.66))
     }
+    let body = NSBezierPath()
+    body.move(to: NSPoint(x: x0, y: lidY))
+    body.line(to: NSPoint(x: x0, y: bodyBottom))
+    lowerCurve(body, at: bodyBottom, from: x0, to: x1)
+    body.line(to: NSPoint(x: x1, y: lidY))
+    body.close()
+    color.setFill(); body.fill()
+    shade(color, 0.45).setFill()
+    NSBezierPath(ovalIn: NSRect(x: x0, y: lidY - lidHeight / 2, width: width, height: lidHeight)).fill()
 
-    NSGraphicsContext.restoreGraphicsState()
-    return rep
+    // White bands: a strip of constant height between two parallel curves, so the ends
+    // sit flush with the sides (a stroked line would stick out or end in a step)
+    NSColor.white.withAlphaComponent(0.9).setFill()
+    let segment = (lidY - bodyBottom) / 3, bandHeight: CGFloat = 22
+    for y in [lidY - segment, lidY - 2 * segment] {
+        let band = NSBezierPath()
+        band.move(to: NSPoint(x: x0, y: y))
+        lowerCurve(band, at: y, from: x0, to: x1)
+        band.line(to: NSPoint(x: x1, y: y - bandHeight))
+        band.curve(to: NSPoint(x: x0, y: y - bandHeight),
+                   controlPoint1: NSPoint(x: x1, y: y - bandHeight - lidHeight * 0.66),
+                   controlPoint2: NSPoint(x: x0, y: y - bandHeight - lidHeight * 0.66))
+        band.close()
+        band.fill()
+    }
 }
 
 func png(_ rep: NSBitmapImageRep) -> Data { rep.representation(using: .png, properties: [:])! }

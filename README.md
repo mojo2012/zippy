@@ -36,6 +36,23 @@ The app's dialogs and messages are currently in German.
 | 7-Zip (`.7z`) | yes, also password-protected (incl. encrypted file names) | yes, saved with LZMA2; password-protected 7z open read-only |
 | RAR 4 and 5 (`.rar`) | yes, except encrypted archives | no, opens read-only |
 | Split archives (`.part1.rar`, `.rar` + `.r00`, `.7z.001`, `.zip.001` …) | yes, open any part | no, open read-only |
+| SQLite databases (`.db`, `.sqlite`, `.sqlite3`, `.db3`) | yes, see below | no, open read-only |
+
+**SQLite databases** open read-only, with a folder per table and view:
+
+| File | Contents |
+|---|---|
+| `<table>/<table>.csv` | the rows of each table and view, ready for Excel: UTF-8 with byte order mark, every column padded to its widest cell so it also lines up in a text editor |
+| `<table>/<table>.json` | the same rows as a JSON array, one object per row |
+| `<table>/<table>.ddl` | the `CREATE` statement plus the table's indexes and triggers |
+| `<table>/blobs/` | blobs over 32 bytes, one file each (`<row>-<column>.png` …), named with an extension from their content; the CSV and JSON contain the path relative to themselves |
+| `_schema.sql` | the whole schema |
+| `_dump.sql` | schema and data like `sqlite3 .dump`; reads back into an identical database |
+| `_info.txt` | overview: size, SQLite version, encoding, journal mode, rows per table, foreign keys, indexes, triggers |
+
+Columns declared as `DATE`, `DATETIME` or `TIMESTAMP` are shown as ISO 8601 in CSV and
+JSON, whether the database stores text, Unix time, Julian days or (Core Data) seconds
+since 2001. Short blobs appear as hex (`X'…'`). The dump keeps every value exactly as stored.
 
 ## Requirements
 
