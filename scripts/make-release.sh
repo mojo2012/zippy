@@ -29,7 +29,11 @@ xcodebuild -project Zippy.xcodeproj -scheme Zippy -configuration Release \
   CODE_SIGNING_ALLOWED=NO build -quiet
 APP="$DERIVED/Build/Products/Release/Zippy.app"
 
-# Ad hoc, with hardened runtime; disable-library-validation because Zippy loads libfuse-t.
+# Ad hoc, with hardened runtime. Inside out: first the Quick Look extension (sandboxed,
+# or Finder doesn't load it), then the app (disable-library-validation because Zippy
+# loads libfuse-t).
+codesign -f -s - --options runtime --entitlements ZippyThumbnails/ZippyThumbnails.entitlements \
+  "$APP/Contents/PlugIns/ZippyThumbnails.appex"
 codesign -f -s - --options runtime --entitlements Zippy/Zippy.entitlements "$APP"
 codesign --verify --strict --deep "$APP"
 lipo -info "$APP/Contents/MacOS/Zippy"
@@ -39,7 +43,8 @@ ditto "$APP" "$STAGE/Zippy.app"
 ln -s /Applications "$STAGE/Applications"
 cat > "$STAGE/Read Me First.txt" <<EOF
 Zippy $VERSION
-Opens ZIP, TAR, 7z and RAR archives as drives in Finder.
+Opens ZIP, TAR, 7z and RAR archives as drives in Finder, and SQLite
+databases as folders of CSV, JSON and SQL files.
 https://github.com/mojo2012/zippy
 
 1. Install FUSE-T (free for personal use): https://www.fuse-t.org
@@ -57,6 +62,10 @@ https://github.com/mojo2012/zippy
 4. Right-click an archive and choose Open With > Zippy. To use Zippy for all
    archives of a type: select one, press Cmd-I, pick Zippy under "Open with"
    and click "Change All...".
+
+Passwords: right-click a ZIP or 7z and choose Services > Password Protection
+with Zippy to add or remove a password. Password-protected archives show a lock
+on their icon.
 
 Settings: open Zippy itself (without an archive) to choose how archives are
 mounted and to see whether FUSE-T is set up.
