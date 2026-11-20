@@ -95,6 +95,31 @@ import Testing
         #expect(try saveAndReopen(editable).text(at: "big.bin") == "short")
     }
 
+    /// Writing sets the modification date to now. FUSE-T then sets the date from before
+    /// the write again when closing the file; that must not undo it.
+    @Test func writingUpdatesModificationDate() throws {
+        let editable = try openEditable(["a.txt": Data("a".utf8)])
+        let node = try #require(editable.node(at: "a.txt"))
+        let old = Date(timeIntervalSince1970: 1_500_000_000)
+        try editable.setModificationDate(node.id, to: old)
+        let start = Date()
+        try editable.write(node.id, data: Data("b".utf8), at: 1)
+        try editable.write(node.id, data: Data("c".utf8), at: 2)
+        let written = try #require(editable.node(node.id)?.modificationDate)
+        #expect(written >= start.addingTimeInterval(-1))
+        try editable.setModificationDate(node.id, to: old)
+        #expect(editable.node(node.id)?.modificationDate == written)
+        let saved = try #require(try saveAndReopen(editable).index.lookup(path: "a.txt"))
+        #expect(saved.modificationDate > old)
+
+        // Any other date is set, e.g. by touch or a copy that keeps dates
+        let other = Date(timeIntervalSince1970: 1_000_000_000)
+        try editable.setModificationDate(node.id, to: other)
+        #expect(editable.node(node.id)?.modificationDate == other)
+        try editable.setModificationDate(node.id, to: old)
+        #expect(editable.node(node.id)?.modificationDate == old)
+    }
+
     @Test func posixErrors() throws {
         let editable = try openEditable(["d/x.txt": Data("x".utf8)])
         #expect(throws: POSIXError(.EEXIST)) { try editable.createFile(at: "d/x.txt") }

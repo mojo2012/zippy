@@ -296,6 +296,12 @@ unter Dateisystemerweiterungen einschalten. Fehlt sie, scheitert `mount -t fuset
   AppleDouble (`._name`) ins Volume. Zippy legt darum `._.` mit dem Flag „eigenes Symbol“
   in den Wurzelordner, im selben 4096-Byte-Format, das macOS schreibt (kürzere Varianten
   ignoriert der Kernel). Am Wurzelordner lassen sich keine Attribute setzen.
+- **Änderungszeit nach dem Schreiben:** Beim Schließen schickt FUSE-T ein `utimens` mit der
+  Zeit von *vor* dem Schreiben. `EditableArchive.setModificationDate` ignoriert genau diesen
+  Rücksetzer, sonst würde Schreiben die Zeit nie ändern. Im Volume zeigt `stat` die neue Zeit
+  trotzdem erst nach dem nächsten Öffnen oder Mounten: Die FSKit-Seite behält ihren Wert,
+  auch `noattrcache` und `fuse_invalidate_path` ändern daran nichts. Gespeichert wird die
+  richtige Zeit.
 - Mehrere Volumes gleichzeitig, Lesen, Bearbeiten, `fsync`, `ftruncate`, atomares Speichern
   und Auswerfen im Finder gehen. Attribute an Dateien landen als `._`-Dateien und werden
   nicht ins Archiv gespeichert.

@@ -54,6 +54,8 @@ public final class EditableArchive: @unchecked Sendable {
     private var changed = false
     private var descriptors: [UInt64: Int32] = [:]
     private var attributes: [UInt64: [String: Data]] = [:]
+    /// Modification date of a file before it was written to, see ``setModificationDate(_:to:)``.
+    private var datesBeforeWriting: [UInt64: Date] = [:]
     private let workDirectory: URL
 
     public init(archive: Archive, readOnly: Bool = false) {
@@ -247,10 +249,17 @@ public final class EditableArchive: @unchecked Sendable {
         }
     }
 
+    /// Sets the modification date, e.g. for `touch` or a copy that keeps dates.
+    ///
+    /// FUSE-T (via FSKit) sends the date it cached before a write when the file is closed
+    /// afterwards. Setting the file back to exactly that date is ignored, otherwise
+    /// writing would never change it.
     public func setModificationDate(_ id: UInt64, to date: Date) throws {
         try mutate {
             guard let node = nodes[id] else { throw POSIXError(.ENOENT) }
             guard abs(node.modificationDate.timeIntervalSince(date)) >= 0.001 else { return }
+            if let before = datesBeforeWriting[id], abs(before.timeIntervalSince(date)) < 0.001 { return }
+            datesBeforeWriting[id] = nil
             nodes[id]!.modificationDate = date
             if !excluded(id) { changed = true }
         }
@@ -576,6 +585,8 @@ public final class EditableArchive: @unchecked Sendable {
     }
 
     private func modified(_ id: UInt64) {
+        guard let node = nodes[id] else { return }
+        if datesBeforeWriting[id] == nil { datesBeforeWriting[id] = node.modificationDate }
         nodes[id]?.modificationDate = Date()
         if !excluded(id) { changed = true }
     }
